@@ -1,18 +1,26 @@
 name: voce-conhece
-version: 0.3.0
+version: 0.4.0
 # The engineering brand of the private brand kit (Tyto TYTO-611): its logo, signature and accent.
 # Without that brand in the installed kit, the logo and the signature are placeholders.
 brand: engenharia
 description: A "do you know the difference" carousel at 1080×1350 — a cover with the question, explanation slides with coloured highlights and pictures among the lines, and a sign-off.
 # Every face the slides set is declared, so the plugin's process can measure them (Tyto ADR 0048).
 # CircularXX is licensed: it crosses only under the manifest's `font:CircularXX`, approved at
-# install. `tests/faces.test.ts` holds this list equal to the faces the example draws.
+# install. `tests/faces.test.ts` holds this list equal to the faces the examples draw.
+#
+# A glyph CircularXX lacks (Δ, ∇, ℏ, ², ·) is drawn in Tyto's bundled symbol chain (Tyto ADR
+# 0168): Noto Sans Math, then Source Sans 3 at the nearest of its 400 and 700. They are listed
+# so the plugin's own measure splits a formula the way the host draws it; the faces test derives
+# the Source Sans 3 weights from the weights the examples draw.
 faces:
   - { family: CircularXX, weight: 300 }
   - { family: CircularXX, weight: 400 }
   - { family: CircularXX, weight: 500 }
   - { family: CircularXX, weight: 700 }
   - { family: CircularXX, weight: 900 }
+  - { family: Noto Sans Math, weight: 400 }
+  - { family: Source Sans 3, weight: 400 }
+  - { family: Source Sans 3, weight: 700 }
 fonts:
   CircularXX: { alternatives: [Inter, Manrope, DM Sans] }
 formats: [grid]
@@ -56,15 +64,16 @@ values:
   paper: { type: color, default: '#ffffff' }
   # The explanation's words, and the signature on paper.
   body-ink: { type: color, default: '#4d4d4d' }
-  # `**x**`: its colour and its weight (one of the faces above).
-  highlight-ink: { type: color, default: '#4d4d4d' }
+  # `**x**`: its colour and its weight (one of the faces above), under the names every template
+  # shares (Tyto `docs/template-conventions.md`, TYTO-554).
+  highlight-color: { type: color, default: '#4d4d4d' }
   # A weight between the faces is set at the nearest one.
   highlight-weight: { type: number, default: 500, min: 300, max: 900 }
   # The four `{cor:…}` highlights, set at the highlight's weight.
-  highlight-azul: { type: color, default: '#2f628a' }
-  highlight-vermelho: { type: color, default: '#873131' }
-  highlight-verde: { type: color, default: '#39902e' }
-  highlight-ocre: { type: color, default: '#8a662d' }
+  mark-cor-azul: { type: color, default: '#2f628a' }
+  mark-cor-vermelho: { type: color, default: '#873131' }
+  mark-cor-verde: { type: color, default: '#39902e' }
+  mark-cor-ocre: { type: color, default: '#8a662d' }
   # The cover's title is set at the largest size between these that keeps it in its room, so a
   # short title grows and a long one shrinks. Below the floor it overflows, reported.
   title-floor: { type: length, default: 56, min: 32, max: 94.23 }

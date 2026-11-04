@@ -5098,7 +5098,7 @@ function isRecursive(inst, stack, resolve) {
     }
     return answer;
   };
-  const merge2 = (answer) => {
+  const merge3 = (answer) => {
     if (answer > result)
       result = answer;
   };
@@ -5107,7 +5107,7 @@ function isRecursive(inst, stack, resolve) {
   switch (kind) {
     case "object": {
       const raw = rawShape(def);
-      merge2(raw ? shape(raw, true) : ASSUMED);
+      merge3(raw ? shape(raw, true) : ASSUMED);
       check2(def.catchall);
       break;
     }
@@ -5157,7 +5157,7 @@ function isRecursive(inst, stack, resolve) {
     // `$ZodLazy` caches its inner on the def, so a resolved edge is followed exactly
     case "lazy": {
       const inner = def._cachedInner ?? (resolve ? inst._zod.innerType : void 0);
-      merge2(inner ? isRecursive(inner, stack, false) : ASSUMED);
+      merge3(inner ? isRecursive(inner, stack, false) : ASSUMED);
       break;
     }
     // a leaf by choice: `parts` are regex fragments, not data positions
@@ -19721,7 +19721,7 @@ function date4(params) {
   return _coercedDate(ZodDate, params);
 }
 
-// node_modules/.pnpm/@rafaelsilvalor+tyto-core@0.36.1/node_modules/@rafaelsilvalor/tyto-core/dist/chunk-AVQMXBFG.js
+// node_modules/.pnpm/@rafaelsilvalor+tyto-core@0.37.0/node_modules/@rafaelsilvalor/tyto-core/dist/chunk-BDXPNDLY.js
 var SVG_MARKUP_WAY_OUT = "only flat shapes painted by presentation attributes are inlined: draw it as a contour (a vector of kind 'path'), place it as a PNG, or re-export it from Illustrator with Styling set to Presentation Attributes";
 var diagnosticCodes = {
   // Three syntax codes and not one, because fatality is a property of the code and one
@@ -20610,6 +20610,17 @@ var diagnosticCodes = {
     fatal: false,
     fatality: "A warning never replaces a value (ADR 0013)."
   },
+  // Raised by `compile` while it lays out text, on the host only (ADR 0168): the host lays out
+  // every frame again with every bundled face, a code template's included, so it is the one
+  // place that sees the whole symbol chain and the layout that is drawn.
+  W_GLYPH_MISSING: {
+    severity: "warning",
+    summary: "Text uses characters that neither its font nor the bundled symbol faces can draw.",
+    template: "Text in slot '{slot}' uses {glyphs}, which neither '{font}' nor the bundled symbol faces can draw, in format '{format}'. Another font on this machine may draw them, measured wrong.",
+    spec: "docs/adr/0168-a-glyph-its-face-lacks-is-drawn-in-the-symbol-face.md",
+    fatal: false,
+    fatality: "The artwork is drawn. The characters are measured as the font measures a glyph it lacks, and the browser draws them in whatever face it finds, so the line around them may break or align wrong."
+  },
   // Raised by a template through `context.report` rather than by a stage (ADR 0058). The
   // template names only the code and how far it ran over; `compile` fills in the artwork and
   // the format and points the range at the directive the artwork came from.
@@ -20628,6 +20639,17 @@ var diagnosticCodes = {
     summary: "A paragraph of an artwork ends on a line holding a single word in one format.",
     template: "Artwork '{artwork}' ends a paragraph on the single word '{word}' in format '{format}': no size or letter spacing within the template's limits moved another word down to it.",
     spec: "docs/adr/0167-a-template-spaces-its-blocks-by-weight-and-keeps-orphans-off-its-text.md",
+    fatal: false,
+    fatality: "A warning never replaces a value (ADR 0013)."
+  },
+  // Raised by a template the same way (TYTO-502): a file it draws with, a format's background
+  // say, is not in its folder. A warning, as every template report is (ADR 0058): the rest of
+  // the frame is drawn, and the person sees which file to put back.
+  W_TEMPLATE_FILE_MISSING: {
+    severity: "warning",
+    summary: "A file an artwork's template draws with is not in the template's folder in one format.",
+    template: "Artwork '{artwork}' is drawn without '{path}' in format '{format}': template '{template}' has no such file in its folder.",
+    spec: "docs/adr/0058-a-template-reports-warnings-beside-its-frame.md",
     fatal: false,
     fatality: "A warning never replaces a value (ADR 0013)."
   },
@@ -21690,9 +21712,9 @@ function absorbedByPrevious(target, produced, range) {
 function styled(inline, style2, options) {
   switch (inline.kind) {
     case "bold":
-      return { ...style2, weight: options.bold ?? BOLD };
+      return typeof options.bold === "object" ? { ...style2, weight: BOLD, ...options.bold } : { ...style2, weight: options.bold ?? BOLD };
     case "italic":
-      return { ...style2, style: "italic" };
+      return { ...style2, ...options.italic, style: "italic" };
     case "mark":
       return { ...style2, ...options.mark?.(inline.key, inline.value) };
     default:
@@ -21737,7 +21759,7 @@ function imageValue(context, name) {
   return typeof value === "object" && "hash" in value ? value : void 0;
 }
 
-// node_modules/.pnpm/@rafaelsilvalor+tyto-core@0.36.1/node_modules/@rafaelsilvalor/tyto-core/dist/template.js
+// node_modules/.pnpm/@rafaelsilvalor+tyto-core@0.37.0/node_modules/@rafaelsilvalor/tyto-core/dist/template.js
 function base(options) {
   return {
     transform: { ...identityTransform, ...options.transform },
@@ -21839,7 +21861,7 @@ function frame(options) {
   };
 }
 
-// node_modules/.pnpm/@rafaelsilvalor+tyto-house-style@0.4.5/node_modules/@rafaelsilvalor/tyto-house-style/dist/chunk-YTKBFVV6.js
+// node_modules/.pnpm/@rafaelsilvalor+tyto-house-style@0.5.0/node_modules/@rafaelsilvalor/tyto-house-style/dist/chunk-YTKBFVV6.js
 var PAPER = "#fbfbfb";
 var INK = "#000000";
 var ZEBRA = "#f2f2f4";
@@ -21876,7 +21898,7 @@ var BODY = {
 };
 var OPTICAL_DROP = 0.15;
 
-// node_modules/.pnpm/@rafaelsilvalor+tyto-template-kit@0.9.0/node_modules/@rafaelsilvalor/tyto-template-kit/dist/index.js
+// node_modules/.pnpm/@rafaelsilvalor+tyto-template-kit@0.10.0/node_modules/@rafaelsilvalor/tyto-template-kit/dist/index.js
 function shifted(draft, dx, dy) {
   const transform2 = {
     ...draft.transform,
@@ -21916,6 +21938,78 @@ var LABEL_EXCEPTIONS = [
   { name: "a time", pattern: String.raw`\d{1,2}:\d{2}` },
   { name: "a URL", pattern: String.raw`\p{L}[\p{L}\d+.-]*://\S*` }
 ];
+var HIGHLIGHT_WEIGHT = 700;
+function mergeFamilies(base2, over) {
+  if (over === void 0) return base2;
+  const merged = { ...base2 };
+  for (const [key, family] of Object.entries(over)) {
+    const previous = merged[key];
+    const like = family.like ?? previous?.like;
+    merged[key] = {
+      ...like === void 0 ? {} : { like },
+      values: { ...previous?.values, ...family.values }
+    };
+  }
+  return merged;
+}
+function merge2(base2, over) {
+  const marks = mergeFamilies(base2.marks, over.marks);
+  return {
+    bold: { ...base2.bold, ...over.bold },
+    italic: { ...base2.italic, ...over.italic },
+    ...marks === void 0 ? {} : { marks }
+  };
+}
+function markStyle(spec, key, value) {
+  const family = spec.marks?.[key];
+  const named = family?.values[value];
+  if (family === void 0 || named === void 0) return void 0;
+  switch (family.like) {
+    case "bold":
+      return { weight: HIGHLIGHT_WEIGHT, ...spec.bold, ...named };
+    case "italic":
+      return { ...spec.italic, ...named, style: "italic" };
+    default:
+      return named;
+  }
+}
+function highlights(spec) {
+  return {
+    spec,
+    options: {
+      bold: { weight: HIGHLIGHT_WEIGHT, ...spec.bold },
+      italic: spec.italic ?? {},
+      mark: (key, value) => markStyle(spec, key, value)
+    },
+    with: (override) => highlights(merge2(spec, override))
+  };
+}
+function declaredColor(context, name, fallback) {
+  return typeof fallback === "string" ? colorValue(context, name, fallback) : typeof context.values?.[name] === "string" ? context.values[name] : fallback;
+}
+function highlightsFromValues(context, defaults, place) {
+  const weight = numberValue(
+    context,
+    "highlight-weight",
+    defaults.bold?.weight ?? HIGHLIGHT_WEIGHT
+  );
+  const houseColor = declaredColor(context, "highlight-color", defaults.bold?.color);
+  const color2 = place === void 0 ? houseColor : declaredColor(context, `${place}-highlight-color`, houseColor);
+  const marks = {};
+  for (const [key, family] of Object.entries(defaults.marks ?? {})) {
+    const values = {};
+    for (const [name, style2] of Object.entries(family.values)) {
+      const declared = declaredColor(context, `mark-${key}-${name}`, style2.color);
+      values[name] = declared === void 0 ? style2 : { ...style2, color: declared };
+    }
+    marks[key] = { ...family, values };
+  }
+  return highlights({
+    ...defaults,
+    bold: { ...defaults.bold, weight, ...color2 === void 0 ? {} : { color: color2 } },
+    ...defaults.marks === void 0 ? {} : { marks }
+  });
+}
 function mark(shape, height, fill, name) {
   const scale = height / shape.box.h;
   return block(
@@ -22105,7 +22199,7 @@ function plain(text2) {
   }).join("");
 }
 
-// node_modules/.pnpm/@rafaelsilvalor+tyto-house-style@0.4.5/node_modules/@rafaelsilvalor/tyto-house-style/dist/chunk-EIGOHDOF.js
+// node_modules/.pnpm/@rafaelsilvalor+tyto-house-style@0.5.0/node_modules/@rafaelsilvalor/tyto-house-style/dist/chunk-EIGOHDOF.js
 var PLACEHOLDER_LOGO = {
   box: { w: 186.09, h: 376.79 },
   d: (
@@ -22148,7 +22242,7 @@ function signatureOf(kit) {
   return kit.signature ?? PLACEHOLDER_SIGNATURE;
 }
 
-// node_modules/.pnpm/@rafaelsilvalor+tyto-house-style@0.4.5/node_modules/@rafaelsilvalor/tyto-house-style/dist/index.js
+// node_modules/.pnpm/@rafaelsilvalor+tyto-house-style@0.5.0/node_modules/@rafaelsilvalor/tyto-house-style/dist/index.js
 var TITLE_INK = "#7c7c7c";
 var ROW_INK = "#393939";
 var FACE = systemFont("CircularXX");
@@ -22212,13 +22306,13 @@ var COLOR_DEFAULTS = {
   paper: "#ffffff",
   /** The explanation's words, and the signature on paper. */
   "body-ink": "#4d4d4d",
-  /** `**x**`'s colour. */
-  "highlight-ink": "#4d4d4d",
-  /** The four `{cor:…}` highlights. */
-  "highlight-azul": "#2f628a",
-  "highlight-vermelho": "#873131",
-  "highlight-verde": "#39902e",
-  "highlight-ocre": "#8a662d"
+  /** `**x**`'s colour, under the house's shared name (Tyto `docs/template-conventions.md`). */
+  "highlight-color": "#4d4d4d",
+  /** The four `{cor:…}` highlights, `mark-<family>-<name>` as the house names them. */
+  "mark-cor-azul": "#2f628a",
+  "mark-cor-vermelho": "#873131",
+  "mark-cor-verde": "#39902e",
+  "mark-cor-ocre": "#8a662d"
 };
 var NUMBER_DEFAULTS = {
   /** The weight every highlight is set at, snapped to the nearest face the manifest lists. */
@@ -22274,11 +22368,19 @@ function capOffset(size, lineHeight) {
 }
 var SLIDE_WIDTH = 1080;
 var ESTIMATED_ADVANCE = 0.5;
-var HIGHLIGHTS = {
-  azul: "highlight-azul",
-  vermelho: "highlight-vermelho",
-  verde: "highlight-verde",
-  ocre: "highlight-ocre"
+var HIGHLIGHT_SPEC = {
+  bold: { color: COLOR_DEFAULTS["highlight-color"], weight: NUMBER_DEFAULTS["highlight-weight"] },
+  marks: {
+    cor: {
+      like: "bold",
+      values: {
+        azul: { color: COLOR_DEFAULTS["mark-cor-azul"] },
+        vermelho: { color: COLOR_DEFAULTS["mark-cor-vermelho"] },
+        verde: { color: COLOR_DEFAULTS["mark-cor-verde"] },
+        ocre: { color: COLOR_DEFAULTS["mark-cor-ocre"] }
+      }
+    }
+  }
 };
 var LOGO = { y: 76, height: 59 };
 function roleOf(context) {
@@ -22603,17 +22705,11 @@ function slideTitle(context, written, color2) {
   };
 }
 function paragraph(context, name, line, capTop, size, ink, setting = { letterSpacing: 0 }) {
-  const weight = highlightWeight(context);
   const style2 = { font: FACE2, size, weight: LIGHT, color: ink("body-ink") };
-  const runs = setting.runs ?? runsOf(highlighted(line), style2, {
-    mark: (key, value) => {
-      if (key === HIGHLIGHT_KEY) return { color: ink("highlight-ink"), weight };
-      if (key === "cor" && value in HIGHLIGHTS) {
-        return { color: ink(HIGHLIGHTS[value]), weight };
-      }
-      return void 0;
-    }
+  const marks = highlightsFromValues(context, HIGHLIGHT_SPEC).with({
+    bold: { weight: highlightWeight(context) }
   });
+  const runs = setting.runs ?? runsOf(line, style2, marks.options);
   return textRuns(name, runs, {
     x: BODY2.x,
     capTop,
@@ -22621,24 +22717,6 @@ function paragraph(context, name, line, capTop, size, ink, setting = { letterSpa
     lineHeight: BODY2.lineHeight,
     width: BODY2.width,
     letterSpacing: setting.letterSpacing
-  });
-}
-var HIGHLIGHT_KEY = "destaque";
-function highlighted(written) {
-  return written.map((inline) => {
-    if (inline.kind === "bold") {
-      return {
-        kind: "mark",
-        key: HIGHLIGHT_KEY,
-        value: "",
-        children: highlighted(inline.children),
-        range: inline.range
-      };
-    }
-    if (inline.kind === "italic" || inline.kind === "mark") {
-      return { ...inline, children: highlighted(inline.children) };
-    }
-    return inline;
   });
 }
 function highlightWeight(context) {

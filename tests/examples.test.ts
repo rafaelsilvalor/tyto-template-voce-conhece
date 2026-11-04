@@ -36,4 +36,18 @@ describe('the example carousel', () => {
       await expect(slide.html).toMatchFileSnapshot(`./__snapshots__/diferenca-${index + 1}.html`);
     }
   });
+
+  it('draws a formula in Unicode, Greek and operators among the words, the HTML of last time', async () => {
+    const result = await compileTemplate({
+      brief: read('../templates/voce-conhece/examples/formula.brief'),
+      template,
+      formats,
+    });
+    if (!result.ok) throw new Error(result.error.map((item) => item.message).join('\n'));
+
+    expect(result.value.frames).toHaveLength(4);
+    for (const [index, slide] of result.value.frames.entries()) {
+      await expect(slide.html).toMatchFileSnapshot(`./__snapshots__/formula-${index + 1}.html`);
+    }
+  });
 });

@@ -280,6 +280,37 @@ describe('an explanation', () => {
     expect(first?.transform?.y).toBeGreaterThan(title?.transform?.y ?? Infinity);
   });
 
+  it('draws the {titulo} in the deep colour, not the accent', () => {
+    const context = contextOf([...words('Na prática'), brk, ...words('Um parágrafo.')], {
+      adjustments: { titulo: true },
+    });
+    const runs = named(context, 'titulo-lamina')?.runs ?? [];
+
+    expect(runs.map((each) => [each.text, each.weight, hex(each)])).toEqual([
+      ['NA PRÁTICA', 900, '#204e72'],
+    ]);
+  });
+
+  it("keeps a {cor:…} in the {titulo} in its colour and bold in the title's, all Black", () => {
+    const title: RichText = [
+      ...words('O '),
+      { kind: 'mark', key: 'cor', value: 'verde', children: words('ciclo'), range },
+      ...words(' e o '),
+      { kind: 'bold', children: words('tempo'), range },
+    ];
+    const context = contextOf([...title, brk, ...words('Um parágrafo.')], {
+      adjustments: { titulo: true },
+    });
+    const runs = named(context, 'titulo-lamina')?.runs ?? [];
+
+    // The bold run merges into the words before it: the same face, the same colour.
+    expect(runs.map((each) => [each.text, each.weight, hex(each)])).toEqual([
+      ['O ', 900, '#204e72'],
+      ['CICLO', 900, '#39902e'],
+      [' E O TEMPO', 900, '#204e72'],
+    ]);
+  });
+
   it('without {titulo}, draws no title', () => {
     const context = contextOf([...words('Na prática'), brk, ...words('Um parágrafo.')]);
 

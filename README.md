@@ -81,6 +81,11 @@ formats: [grid]
   indented lines under it go on. `::imagem {sem-quadro} ./foto.png` draws that picture without
   the frame, at the paragraphs' place and width, between the same 3:1 and square.
 - **The sign-off**, `{fecho}`: empty, or one line that replaces its title.
+- **No lone word** (Tyto ADR 0167): no title or paragraph ends on a line of one word. The
+  template moves a word down from the line above, spaces the letters by up to a hundredth of an
+  em or, for a title, sets it up to 8% smaller, never under its floor; the paragraphs keep the
+  size they share. A word nothing within those limits clears stays, and the render reports
+  `W_TEMPLATE_ORPHAN` naming it. Two words joined by a no-break space move together.
 
 ## What it may reach
 
@@ -103,6 +108,8 @@ which Tyto has no face for: it is Black (900), the maintainer's call.
 - `highlight-weight` (500): set at the nearest of the faces the manifest lists.
 - four pairs of floor and ceiling, the font sizes each text is fitted between: `lead-*`,
   `title-*`, `slide-title-*` and `body-*`.
+- `orphan-shrink` (0.08) and `orphan-tracking` (0.01 em): how far a text may move to keep a
+  word off its last line, questao-estrategica's limits; 0 turns either off.
 - `cover-background`, an image with no default: the cover's picture for every brief of a
   configuration; a brief's own `fundo` wins over it.
 

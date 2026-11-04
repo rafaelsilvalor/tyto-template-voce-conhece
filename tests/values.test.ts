@@ -45,6 +45,11 @@ describe('declared values', () => {
     expect(defaults).toEqual(FALLBACKS);
   });
 
+  it("keeps the orphan limits at questao-estrategica's: 8% smaller, a hundredth of an em", () => {
+    expect(declared['orphan-shrink']?.default).toBe(0.08);
+    expect(declared['orphan-tracking']?.default).toBe(0.01);
+  });
+
   it('draws the same HTML with every default supplied as with no values at all', async () => {
     const supplied = Object.fromEntries(
       Object.entries(FALLBACKS).map(([name, value]) => [name, { value }]),

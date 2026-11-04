@@ -37,7 +37,16 @@ import {
   vector,
 } from '@tyto/core/template';
 import { accentOf, drawLogo, oneInk, signatureOf } from '@tyto/house-style';
-import { at, imageHeight, lines, plain, reportOverflow } from '@tyto/template-kit';
+import {
+  ORPHAN_LIMITS,
+  at,
+  imageHeight,
+  lines,
+  plain,
+  reportOrphan,
+  reportOverflow,
+  settle,
+} from '@tyto/template-kit';
 
 import type {
   AssetRef,
@@ -50,6 +59,7 @@ import type {
   TextRun,
 } from '@tyto/core';
 import type { NodeDraft, TextDraft } from '@tyto/core/template';
+import type { OrphanLimits, Setting } from '@tyto/template-kit';
 
 /* -------------------------------------------------------------------------- the words -- */
 
@@ -101,6 +111,13 @@ export const NUMBER_DEFAULTS = {
   /** An explanation's `{titulo}`, set as the cover's title: the largest size whose words fit. */
   'slide-title-floor': 40,
   'slide-title-ceiling': 56,
+  /**
+   * How far under its fitted size a title may go to keep a word off a line of its own (Tyto
+   * ADR 0167), never under its floor; the paragraphs keep the size they share.
+   */
+  'orphan-shrink': ORPHAN_LIMITS.shrink,
+  /** The most letter spacing, in em, a title or a paragraph may take or give for the same. */
+  'orphan-tracking': ORPHAN_LIMITS.tracking,
 } as const;
 
 type NumberName = keyof typeof NUMBER_DEFAULTS;
@@ -122,6 +139,17 @@ function sizesBetween(
   sizes.push(floor);
   return sizes;
 }
+
+/** The `orphan-*` values: how far `settle` may move a text to keep a word off its last line. */
+function orphanLimits(context: TemplateContext): OrphanLimits {
+  return {
+    shrink: numberValue(context, 'orphan-shrink', NUMBER_DEFAULTS['orphan-shrink']),
+    tracking: numberValue(context, 'orphan-tracking', NUMBER_DEFAULTS['orphan-tracking']),
+  };
+}
+
+/** A text's setting before any orphan is looked for: its size, no spacing, its own runs. */
+const plainSetting = (size: number): Setting => ({ size, letterSpacing: 0 });
 
 const FACE = { family: 'CircularXX', source: 'system' } as const;
 const LIGHT = 300;
@@ -286,18 +314,26 @@ function coverTitle(
 ): TextDraft {
   const sizes = sizesBetween(context, 'title');
   const floor = sizes[sizes.length - 1]!;
-  const draft = (size: number) =>
-    textAt('titulo', written.join('\n'), {
+  const draftAt = (setting: Setting) => {
+    const placed = {
       x: COVER.x,
       capTop,
-      size,
+      size: setting.size,
       weight: BLACK,
       color,
       lineHeight: COVER.titleLineHeight,
       width: COVER.width,
-    });
-  const layout = (size: number): { readonly lines: number; readonly width: number } => {
-    const node = draft(size);
+      letterSpacing: setting.letterSpacing,
+    };
+    return setting.runs === undefined
+      ? textAt('titulo', written.join('\n'), placed)
+      : textRuns('titulo', setting.runs, placed);
+  };
+  const draft = (size: number) => draftAt(plainSetting(size));
+  const layout = (
+    size: number,
+    node: TextDraft = draft(size),
+  ): { readonly lines: number; readonly width: number } => {
     const measured = context.measure(node);
     if (measured !== undefined) return measured;
     const perLine = Math.max(1, Math.floor(COVER.width / (size * COVER.estimatedAdvance)));
@@ -310,12 +346,25 @@ function coverTitle(
   };
   const foot = (size: number, count: number) =>
     capTop + (count - 1) * size * COVER.titleLineHeight + size * CAP_HEIGHT;
-  const fits = (size: number) => {
-    const laid = layout(size);
+  const fits = (size: number, node?: TextDraft) => {
+    const laid = layout(size, node);
     return laid.width <= COVER.width + 0.5 && foot(size, laid.lines) <= COVER.bottom;
   };
-  const fitted = sizes.find(fits);
-  if (fitted !== undefined) return draft(fitted);
+  const fitted = sizes.find((size) => fits(size));
+  if (fitted !== undefined) {
+    // In its room, never under the floor, and no word alone at the end (Tyto ADR 0167).
+    const settled = settle({
+      size: fitted,
+      measure: context.measure,
+      limits: orphanLimits(context),
+      layout: (setting) => {
+        const node = draftAt(setting);
+        return { text: node, fits: setting.size >= floor && fits(setting.size, node), laid: node };
+      },
+    });
+    reportOrphan(context.report, settled.orphan);
+    return settled.laid;
+  }
   reportOverflow(context.report, foot(floor, layout(floor).lines), COVER.bottom);
   return draft(floor);
 }
@@ -401,8 +450,12 @@ interface Piece {
 function explanation(context: TemplateContext, ink: Ink, accent: string): NodeDraft[] {
   const { title, parts } = titled(context, slideParts(context));
   const heading = title === undefined ? undefined : slideTitle(context, title, accent);
-  const piecesAt = (size: number): Piece[] => {
+  /** Each paragraph's spacing and rebroken runs, by its index among the paragraphs. */
+  type Settings = ReadonlyMap<number, Omit<Setting, 'size'>>;
+  const paragraphTexts: TextDraft[] = [];
+  const piecesAt = (size: number, settings: Settings = new Map()): Piece[] => {
     let count = 0;
+    paragraphTexts.length = 0;
     const head: Piece[] = heading === undefined ? [] : [heading];
     return head.concat(
       parts.flatMap((part): Piece[] => {
@@ -410,9 +463,12 @@ function explanation(context: TemplateContext, ink: Ink, accent: string): NodeDr
           return [part.framed ? picturePiece(part.asset, ink) : barePiece(part.asset)];
         }
         return part.lines.map((line) => {
+          const setting = settings.get(count);
           count += 1;
           const name = `paragrafo-${count}`;
-          const draftAt = (capTop: number) => paragraph(context, name, line, capTop, size, ink);
+          const draftAt = (capTop: number) =>
+            paragraph(context, name, line, capTop, size, ink, setting);
+          paragraphTexts.push(draftAt(0));
           const lineCount = measuredLines(context, draftAt(0), [line], size, BODY.width);
           return {
             kind: 'paragraph',
@@ -437,10 +493,35 @@ function explanation(context: TemplateContext, ink: Ink, accent: string): NodeDr
     );
 
   const sizes = sizesBetween(context, 'body');
+  const room = ROOM.bottom - ROOM.top;
   const size =
-    sizes.find((tried) => total(piecesAt(tried), tried) <= ROOM.bottom - ROOM.top) ??
-    sizes[sizes.length - 1]!;
-  const pieces = piecesAt(size);
+    sizes.find((tried) => total(piecesAt(tried), tried) <= room) ?? sizes[sizes.length - 1]!;
+  // No paragraph ends on one word (Tyto ADR 0167): each by a word moved down or its letter
+  // spacing, at the size they share, as long as the block still fits; a word nothing within
+  // the limits clears is reported.
+  let settings: Settings = new Map();
+  const fitsAtSize = total(piecesAt(size), size) <= room;
+  const { tracking } = orphanLimits(context);
+  for (let index = 0; index < paragraphTexts.length; index += 1) {
+    const settled = settle({
+      size,
+      measure: context.measure,
+      limits: { shrink: 0, tracking },
+      layout: (setting) => {
+        const tried = new Map(settings);
+        tried.set(index, {
+          letterSpacing: setting.letterSpacing,
+          ...(setting.runs === undefined ? {} : { runs: setting.runs }),
+        });
+        const height = total(piecesAt(size, tried), size);
+        const text = paragraphTexts[index]!;
+        return { text, fits: !fitsAtSize || height <= room, laid: tried as Settings };
+      },
+    });
+    settings = settled.laid;
+    reportOrphan(context.report, settled.orphan);
+  }
+  const pieces = piecesAt(size, settings);
   const height = total(pieces, size);
   if (height > ROOM.bottom - ROOM.top)
     reportOverflow(context.report, ROOM.top + height, ROOM.bottom);
@@ -483,27 +564,47 @@ function slideTitle(
   color: string,
 ): Piece & { readonly gap: number } {
   const words = capitals(written);
-  const draftAt = (size: number, capTop: number) =>
-    textAt('titulo-lamina', words, {
+  const draftAt = (setting: Setting, capTop: number) => {
+    const placed = {
       x: BODY.x,
       capTop,
-      size,
+      size: setting.size,
       weight: BLACK,
       color,
       lineHeight: BODY.titleLineHeight,
       width: BODY.width,
-    });
-  const widest = (size: number): number => {
-    const measured = context.measure(draftAt(size, 0));
+      letterSpacing: setting.letterSpacing,
+    };
+    return setting.runs === undefined
+      ? textAt('titulo-lamina', words, placed)
+      : textRuns('titulo-lamina', setting.runs, placed);
+  };
+  const widest = (setting: Setting): number => {
+    const measured = context.measure(draftAt(setting, 0));
     if (measured !== undefined) return measured.width;
     const longest = Math.max(0, ...words.split(' ').map((word) => [...word].length));
-    return longest * size * COVER.estimatedAdvance;
+    return longest * setting.size * COVER.estimatedAdvance;
   };
   const sizes = sizesBetween(context, 'slide-title');
-  const size = sizes.find((each) => widest(each) <= BODY.width + 0.5) ?? sizes[sizes.length - 1]!;
+  const floor = sizes[sizes.length - 1]!;
+  const fitted = sizes.find((each) => widest(plainSetting(each)) <= BODY.width + 0.5) ?? floor;
+  // No word past the paragraphs' width, never under the floor, and no word alone at the end.
+  const settled = settle({
+    size: fitted,
+    measure: context.measure,
+    limits: orphanLimits(context),
+    layout: (setting) => ({
+      text: draftAt(setting, 0),
+      fits: setting.size >= floor && widest(setting) <= BODY.width + 0.5,
+      laid: setting,
+    }),
+  });
+  reportOrphan(context.report, settled.orphan);
+  const setting = settled.laid;
+  const size = setting.size;
   const count = measuredLines(
     context,
-    draftAt(size, 0),
+    draftAt(setting, 0),
     [words],
     size,
     BODY.width,
@@ -512,7 +613,7 @@ function slideTitle(
   return {
     kind: 'title',
     height: (count - 1) * size * BODY.titleLineHeight + size * CAP_HEIGHT,
-    place: (top) => [draftAt(size, top)],
+    place: (top) => [draftAt(setting, top)],
     gap: size * BODY.titleGap,
   };
 }
@@ -528,24 +629,28 @@ function paragraph(
   capTop: number,
   size: number,
   ink: Ink,
+  setting: Omit<Setting, 'size'> = { letterSpacing: 0 },
 ): TextDraft {
   const weight = highlightWeight(context);
   const style = { font: FACE, size, weight: LIGHT, color: ink('body-ink') };
-  const runs = runsOf(highlighted(line), style, {
-    mark: (key, value) => {
-      if (key === HIGHLIGHT_KEY) return { color: ink('highlight-ink'), weight };
-      if (key === 'cor' && value in HIGHLIGHTS) {
-        return { color: ink(HIGHLIGHTS[value as keyof typeof HIGHLIGHTS]), weight };
-      }
-      return undefined;
-    },
-  });
+  const runs =
+    setting.runs ??
+    runsOf(highlighted(line), style, {
+      mark: (key, value) => {
+        if (key === HIGHLIGHT_KEY) return { color: ink('highlight-ink'), weight };
+        if (key === 'cor' && value in HIGHLIGHTS) {
+          return { color: ink(HIGHLIGHTS[value as keyof typeof HIGHLIGHTS]), weight };
+        }
+        return undefined;
+      },
+    });
   return textRuns(name, runs, {
     x: BODY.x,
     capTop,
     size,
     lineHeight: BODY.lineHeight,
     width: BODY.width,
+    letterSpacing: setting.letterSpacing,
   });
 }
 

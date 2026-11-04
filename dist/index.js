@@ -21598,6 +21598,7 @@ var TemplateError = class extends Error {
     this.diagnostic = built;
   }
 };
+var ORPHAN_WORD_LIMIT = 80;
 function isTonedMark(mark2) {
   return "layers" in mark2;
 }
@@ -21938,6 +21939,145 @@ function reportOverflow(report, bottom, limit) {
   const overflow = bottom - limit;
   if (overflow > 0) report({ code: "W_TEMPLATE_OVERFLOW", overflow });
 }
+var ORPHAN_LIMITS = { shrink: 0.08, tracking: 0.01 };
+var SIZE_STEP = 1;
+var TRACKING_STEPS = 4;
+function settle2(request) {
+  const { size, layout, measure } = request;
+  const limits = request.limits ?? ORPHAN_LIMITS;
+  const first = layout({ size, letterSpacing: 0 });
+  const orphanAt = (text2) => {
+    const measured2 = measure(text2);
+    return measured2 === void 0 ? void 0 : orphanOf(text2.runs, measured2.runs);
+  };
+  const measured = measure(first.text);
+  const found = measured === void 0 ? void 0 : orphanOf(first.text.runs, measured.runs);
+  if (found === void 0) return { setting: { size, letterSpacing: 0 }, laid: first.laid };
+  const rebroken = measured === void 0 || limits.rebreak === false ? void 0 : rebreak(first.text.runs, measured.runs);
+  if (rebroken !== void 0) {
+    const setting = { size, letterSpacing: 0, runs: rebroken };
+    const tried = layout(setting);
+    if (tried.fits && orphanAt(tried.text) === void 0) return { setting, laid: tried.laid };
+  }
+  const smallest = Math.ceil(size * (1 - limits.shrink));
+  for (let candidate = size; candidate >= smallest; candidate -= SIZE_STEP) {
+    for (const em of trackings(limits.tracking)) {
+      if (candidate === size && em === 0) continue;
+      const setting = { size: candidate, letterSpacing: round(em * candidate) };
+      const tried = layout(setting);
+      if (tried.fits && orphanAt(tried.text) === void 0) return { setting, laid: tried.laid };
+    }
+  }
+  return { setting: { size, letterSpacing: 0 }, laid: first.laid, orphan: found };
+}
+function trackings(limit) {
+  const steps = [0];
+  if (limit <= 0) return steps;
+  for (let step = 1; step <= TRACKING_STEPS; step += 1) {
+    const em = limit * step / TRACKING_STEPS;
+    steps.push(-em, em);
+  }
+  return steps;
+}
+function round(value) {
+  return Math.round(value * 1e3) / 1e3;
+}
+function orphanOf(written, laid) {
+  return firstOrphaned(written, laid)?.word;
+}
+function firstOrphaned(written, laid) {
+  const paragraphs = linesOf(written).map((line2) => wordsOf(line2).length);
+  const lines2 = linesOf(laid);
+  let line = 0;
+  for (const [paragraph2, count] of paragraphs.entries()) {
+    if (count === 0) {
+      line += 1;
+      continue;
+    }
+    let seen = 0;
+    const taken = [];
+    while (seen < count && line < lines2.length) {
+      const text2 = lines2[line] ?? "";
+      seen += wordsOf(text2).length;
+      taken.push(text2);
+      line += 1;
+    }
+    const last = wordsOf(taken.at(-1) ?? "");
+    if (taken.length > 1 && last.length === 1) {
+      return { paragraph: paragraph2, lines: taken, word: last[0] ?? "" };
+    }
+  }
+  return void 0;
+}
+function rebreak(written, laid) {
+  const orphaned = firstOrphaned(written, laid);
+  if (orphaned === void 0) return void 0;
+  const pieces = (text2) => text2.split(/ +/u).filter((piece) => piece.trim() !== "");
+  const before = orphaned.lines.slice(0, -1);
+  const moved = before.reduce((sum, line) => sum + pieces(line).length, 0) - 1;
+  if (moved <= 0) return void 0;
+  return withBreakBefore(written, orphaned.paragraph, moved);
+}
+function withBreakBefore(runs, paragraph2, piece) {
+  const result = [];
+  let current = 0;
+  let seen = -1;
+  let afterSpace = true;
+  let done = false;
+  for (const run2 of runs) {
+    if (run2.kind === "break") {
+      current += 1;
+      afterSpace = true;
+      result.push(run2);
+      continue;
+    }
+    if (done || current !== paragraph2) {
+      result.push(run2);
+      continue;
+    }
+    let cut2 = -1;
+    for (let index = 0; index < run2.text.length && cut2 < 0; index += 1) {
+      const space = run2.text[index] === " ";
+      if (!space && afterSpace) {
+        seen += 1;
+        if (seen === piece) cut2 = index;
+      }
+      afterSpace = space;
+    }
+    if (cut2 < 0) {
+      result.push(run2);
+      continue;
+    }
+    const head = run2.text.slice(0, cut2).replace(/ +$/u, "");
+    if (head !== "") result.push({ ...run2, text: head });
+    else trimLast(result);
+    result.push({ kind: "break" }, { ...run2, text: run2.text.slice(cut2) });
+    done = true;
+  }
+  return result;
+}
+function trimLast(runs) {
+  const last = runs.at(-1);
+  if (last?.kind !== "text") return;
+  const text2 = last.text.replace(/ +$/u, "");
+  if (text2 === "") runs.pop();
+  else runs[runs.length - 1] = { ...last, text: text2 };
+}
+function linesOf(runs) {
+  const lines2 = [""];
+  for (const run2 of runs) {
+    if (run2.kind === "break") lines2.push("");
+    else lines2[lines2.length - 1] += run2.text;
+  }
+  return lines2;
+}
+function wordsOf(line) {
+  return line.split(/\s+/u).filter((word) => word !== "");
+}
+function reportOrphan(report, word) {
+  if (word !== void 0)
+    report({ code: "W_TEMPLATE_ORPHAN", word: [...word].slice(0, ORPHAN_WORD_LIMIT).join("") });
+}
 function lines(text2) {
   const result = [];
   let current = [];
@@ -22094,7 +22234,14 @@ var NUMBER_DEFAULTS = {
   "lead-ceiling": 47.11,
   /** An explanation's `{titulo}`, set as the cover's title: the largest size whose words fit. */
   "slide-title-floor": 40,
-  "slide-title-ceiling": 56
+  "slide-title-ceiling": 56,
+  /**
+   * How far under its fitted size a title may go to keep a word off a line of its own (Tyto
+   * ADR 0167), never under its floor; the paragraphs keep the size they share.
+   */
+  "orphan-shrink": ORPHAN_LIMITS.shrink,
+  /** The most letter spacing, in em, a title or a paragraph may take or give for the same. */
+  "orphan-tracking": ORPHAN_LIMITS.tracking
 };
 function sizesBetween(context, name) {
   const value = (key) => numberValue(context, key, NUMBER_DEFAULTS[key]);
@@ -22105,6 +22252,13 @@ function sizesBetween(context, name) {
   sizes.push(floor);
   return sizes;
 }
+function orphanLimits(context) {
+  return {
+    shrink: numberValue(context, "orphan-shrink", NUMBER_DEFAULTS["orphan-shrink"]),
+    tracking: numberValue(context, "orphan-tracking", NUMBER_DEFAULTS["orphan-tracking"])
+  };
+}
+var plainSetting = (size) => ({ size, letterSpacing: 0 });
 var FACE2 = { family: "CircularXX", source: "system" };
 var LIGHT = 300;
 var REGULAR = 400;
@@ -22216,17 +22370,21 @@ function capitals(words) {
 function coverTitle(context, written, capTop, color2) {
   const sizes = sizesBetween(context, "title");
   const floor = sizes[sizes.length - 1];
-  const draft = (size) => textAt("titulo", written.join("\n"), {
-    x: COVER.x,
-    capTop,
-    size,
-    weight: BLACK,
-    color: color2,
-    lineHeight: COVER.titleLineHeight,
-    width: COVER.width
-  });
-  const layout = (size) => {
-    const node2 = draft(size);
+  const draftAt = (setting) => {
+    const placed = {
+      x: COVER.x,
+      capTop,
+      size: setting.size,
+      weight: BLACK,
+      color: color2,
+      lineHeight: COVER.titleLineHeight,
+      width: COVER.width,
+      letterSpacing: setting.letterSpacing
+    };
+    return setting.runs === void 0 ? textAt("titulo", written.join("\n"), placed) : textRuns("titulo", setting.runs, placed);
+  };
+  const draft = (size) => draftAt(plainSetting(size));
+  const layout = (size, node2 = draft(size)) => {
     const measured = context.measure(node2);
     if (measured !== void 0) return measured;
     const perLine = Math.max(1, Math.floor(COVER.width / (size * COVER.estimatedAdvance)));
@@ -22238,12 +22396,24 @@ function coverTitle(context, written, capTop, color2) {
     return { lines: Math.max(1, count), width: longest * size * COVER.estimatedAdvance };
   };
   const foot = (size, count) => capTop + (count - 1) * size * COVER.titleLineHeight + size * CAP_HEIGHT;
-  const fits = (size) => {
-    const laid = layout(size);
+  const fits = (size, node2) => {
+    const laid = layout(size, node2);
     return laid.width <= COVER.width + 0.5 && foot(size, laid.lines) <= COVER.bottom;
   };
-  const fitted = sizes.find(fits);
-  if (fitted !== void 0) return draft(fitted);
+  const fitted = sizes.find((size) => fits(size));
+  if (fitted !== void 0) {
+    const settled = settle2({
+      size: fitted,
+      measure: context.measure,
+      limits: orphanLimits(context),
+      layout: (setting) => {
+        const node2 = draftAt(setting);
+        return { text: node2, fits: setting.size >= floor && fits(setting.size, node2), laid: node2 };
+      }
+    });
+    reportOrphan(context.report, settled.orphan);
+    return settled.laid;
+  }
   reportOverflow(context.report, foot(floor, layout(floor).lines), COVER.bottom);
   return draft(floor);
 }
@@ -22303,8 +22473,10 @@ var BODY_ARROW = { x: 857, y: 1256, w: 145, h: 34, shaft: 9 };
 function explanation(context, ink, accent) {
   const { title, parts } = titled(context, slideParts(context));
   const heading = title === void 0 ? void 0 : slideTitle(context, title, accent);
-  const piecesAt = (size2) => {
+  const paragraphTexts = [];
+  const piecesAt = (size2, settings2 = /* @__PURE__ */ new Map()) => {
     let count = 0;
+    paragraphTexts.length = 0;
     const head = heading === void 0 ? [] : [heading];
     return head.concat(
       parts.flatMap((part) => {
@@ -22312,9 +22484,11 @@ function explanation(context, ink, accent) {
           return [part.framed ? picturePiece(part.asset, ink) : barePiece(part.asset)];
         }
         return part.lines.map((line) => {
+          const setting = settings2.get(count);
           count += 1;
           const name = `paragrafo-${count}`;
-          const draftAt = (capTop) => paragraph(context, name, line, capTop, size2, ink);
+          const draftAt = (capTop) => paragraph(context, name, line, capTop, size2, ink, setting);
+          paragraphTexts.push(draftAt(0));
           const lineCount = measuredLines(context, draftAt(0), [line], size2, BODY2.width);
           return {
             kind: "paragraph",
@@ -22331,8 +22505,31 @@ function explanation(context, ink, accent) {
     0
   );
   const sizes = sizesBetween(context, "body");
-  const size = sizes.find((tried) => total(piecesAt(tried), tried) <= ROOM.bottom - ROOM.top) ?? sizes[sizes.length - 1];
-  const pieces = piecesAt(size);
+  const room = ROOM.bottom - ROOM.top;
+  const size = sizes.find((tried) => total(piecesAt(tried), tried) <= room) ?? sizes[sizes.length - 1];
+  let settings = /* @__PURE__ */ new Map();
+  const fitsAtSize = total(piecesAt(size), size) <= room;
+  const { tracking } = orphanLimits(context);
+  for (let index = 0; index < paragraphTexts.length; index += 1) {
+    const settled = settle2({
+      size,
+      measure: context.measure,
+      limits: { shrink: 0, tracking },
+      layout: (setting) => {
+        const tried = new Map(settings);
+        tried.set(index, {
+          letterSpacing: setting.letterSpacing,
+          ...setting.runs === void 0 ? {} : { runs: setting.runs }
+        });
+        const height2 = total(piecesAt(size, tried), size);
+        const text2 = paragraphTexts[index];
+        return { text: text2, fits: !fitsAtSize || height2 <= room, laid: tried };
+      }
+    });
+    settings = settled.laid;
+    reportOrphan(context.report, settled.orphan);
+  }
+  const pieces = piecesAt(size, settings);
   const height = total(pieces, size);
   if (height > ROOM.bottom - ROOM.top)
     reportOverflow(context.report, ROOM.top + height, ROOM.bottom);
@@ -22355,26 +22552,44 @@ function titled(context, parts) {
 }
 function slideTitle(context, written, color2) {
   const words = capitals(written);
-  const draftAt = (size2, capTop) => textAt("titulo-lamina", words, {
-    x: BODY2.x,
-    capTop,
-    size: size2,
-    weight: BLACK,
-    color: color2,
-    lineHeight: BODY2.titleLineHeight,
-    width: BODY2.width
-  });
-  const widest = (size2) => {
-    const measured = context.measure(draftAt(size2, 0));
+  const draftAt = (setting2, capTop) => {
+    const placed = {
+      x: BODY2.x,
+      capTop,
+      size: setting2.size,
+      weight: BLACK,
+      color: color2,
+      lineHeight: BODY2.titleLineHeight,
+      width: BODY2.width,
+      letterSpacing: setting2.letterSpacing
+    };
+    return setting2.runs === void 0 ? textAt("titulo-lamina", words, placed) : textRuns("titulo-lamina", setting2.runs, placed);
+  };
+  const widest = (setting2) => {
+    const measured = context.measure(draftAt(setting2, 0));
     if (measured !== void 0) return measured.width;
     const longest = Math.max(0, ...words.split(" ").map((word) => [...word].length));
-    return longest * size2 * COVER.estimatedAdvance;
+    return longest * setting2.size * COVER.estimatedAdvance;
   };
   const sizes = sizesBetween(context, "slide-title");
-  const size = sizes.find((each) => widest(each) <= BODY2.width + 0.5) ?? sizes[sizes.length - 1];
+  const floor = sizes[sizes.length - 1];
+  const fitted = sizes.find((each) => widest(plainSetting(each)) <= BODY2.width + 0.5) ?? floor;
+  const settled = settle2({
+    size: fitted,
+    measure: context.measure,
+    limits: orphanLimits(context),
+    layout: (setting2) => ({
+      text: draftAt(setting2, 0),
+      fits: setting2.size >= floor && widest(setting2) <= BODY2.width + 0.5,
+      laid: setting2
+    })
+  });
+  reportOrphan(context.report, settled.orphan);
+  const setting = settled.laid;
+  const size = setting.size;
   const count = measuredLines(
     context,
-    draftAt(size, 0),
+    draftAt(setting, 0),
     [words],
     size,
     BODY2.width,
@@ -22383,14 +22598,14 @@ function slideTitle(context, written, color2) {
   return {
     kind: "title",
     height: (count - 1) * size * BODY2.titleLineHeight + size * CAP_HEIGHT,
-    place: (top) => [draftAt(size, top)],
+    place: (top) => [draftAt(setting, top)],
     gap: size * BODY2.titleGap
   };
 }
-function paragraph(context, name, line, capTop, size, ink) {
+function paragraph(context, name, line, capTop, size, ink, setting = { letterSpacing: 0 }) {
   const weight = highlightWeight(context);
   const style2 = { font: FACE2, size, weight: LIGHT, color: ink("body-ink") };
-  const runs = runsOf(highlighted(line), style2, {
+  const runs = setting.runs ?? runsOf(highlighted(line), style2, {
     mark: (key, value) => {
       if (key === HIGHLIGHT_KEY) return { color: ink("highlight-ink"), weight };
       if (key === "cor" && value in HIGHLIGHTS) {
@@ -22404,7 +22619,8 @@ function paragraph(context, name, line, capTop, size, ink) {
     capTop,
     size,
     lineHeight: BODY2.lineHeight,
-    width: BODY2.width
+    width: BODY2.width,
+    letterSpacing: setting.letterSpacing
   });
 }
 var HIGHLIGHT_KEY = "destaque";

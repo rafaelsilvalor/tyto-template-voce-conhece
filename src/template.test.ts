@@ -166,9 +166,11 @@ describe('the cover', () => {
 
   it('shrinks the lead to stay on one line', () => {
     const measure = (node: unknown) => {
-      const run = (node as { runs: Run[] }).runs[0];
-      // A stand-in face: the lead fits one line at 40 px or less.
-      return { lines: (run?.size ?? 0) > 40 ? 2 : 1, width: 100 };
+      const runs = (node as { runs: Run[] }).runs;
+      const run = runs[0];
+      // A stand-in face: the lead fits one line at 40 px or less. Its runs come back as they
+      // went in, as a measurement's do when it decides no break.
+      return { runs, lines: (run?.size ?? 0) > 40 ? 2 : 1, width: 100 };
     };
     const lead = named(
       contextOf([...words('Lead longo'), brk, ...words('T')], {

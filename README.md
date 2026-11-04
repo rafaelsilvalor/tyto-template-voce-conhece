@@ -45,7 +45,7 @@ formats: [grid]
 
 ::lamina {capa}
   Você sabe a diferença entre
-  Trocador de calor e regenerador térmico?
+  Trocador de calor e regenerador térmico de placas?
 
 ::lamina
   O **trocador de calor** passa a energia através de uma parede.

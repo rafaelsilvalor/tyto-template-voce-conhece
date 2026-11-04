@@ -336,6 +336,26 @@ describe('an explanation', () => {
     expect(border(framed({ deep: '#123456' }))).toBe('#123456');
   });
 
+  it('stands a frame on a whole pixel, so no seam shows under its corners', () => {
+    const nodes = drawn(
+      contextOf(words('Um parágrafo que deixa o topo fracionário.'), {
+        blocks: [
+          { kind: 'text', text: words('Um parágrafo que deixa o topo fracionário.'), range },
+          {
+            kind: 'slot',
+            slot: { name: 'imagem', value: { kind: 'image', asset: asset('p', 200, 100) } },
+          },
+        ],
+      }),
+    );
+    const tops = nodes
+      .filter((node) => ['moldura', 'canto-superior', 'canto-inferior'].includes(node.name ?? ''))
+      .map((node) => node.transform?.y ?? Number.NaN);
+
+    expect(tops).toHaveLength(3);
+    for (const top of tops) expect(Number.isInteger(top)).toBe(true);
+  });
+
   it('holds a picture between a 3:1 band and a square', () => {
     const height = (w: number, h: number) =>
       drawn(

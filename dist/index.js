@@ -22488,7 +22488,9 @@ function picturePiece(asset, ink) {
   return {
     kind: "picture",
     height: framedPicture(asset, 0, inks).height,
-    place: (y) => framedPicture(asset, y, inks).nodes
+    // On a whole pixel: at a fractional top the border's and the corners' edges are blended,
+    // and a 1 px line of the paper under them shows through the corner (measured 2026-11-04).
+    place: (y) => framedPicture(asset, Math.round(y), inks).nodes
   };
 }
 function slideParts(context) {

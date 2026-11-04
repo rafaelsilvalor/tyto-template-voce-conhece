@@ -22,7 +22,7 @@ templates:
   voce-conhece:
     source:
       git: https://github.com/rafaelsilvalor/tyto-template-voce-conhece.git
-      ref: v0.4.0
+      ref: v0.4.1
 ```
 
 Or install the default branch, as it is:
@@ -45,7 +45,7 @@ formats: [grid]
 
 ::lamina {capa}
   Você sabe a diferença entre
-  Trocador de calor e regenerador térmico?
+  Trocador de calor e regenerador térmico de placas?
 
 ::lamina
   O **trocador de calor** passa a energia através de uma parede.

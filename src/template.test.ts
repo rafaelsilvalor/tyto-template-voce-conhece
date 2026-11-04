@@ -1,13 +1,7 @@
 import { noBrandKit } from '@tyto/core';
 import { describe, expect, it } from 'vitest';
 
-import {
-  DEFAULT_SIGN_OFF_TITLE,
-  NUMBER_DEFAULTS,
-  build,
-  highlightWeight,
-  roleOf,
-} from './template.js';
+import { DEFAULT_SIGN_OFF_TITLE, NUMBER_DEFAULTS, build, roleOf } from './template.js';
 
 import type { AssetRef, RichText, SlotValue, TemplateContext } from '@tyto/core';
 
@@ -245,10 +239,22 @@ describe('an explanation', () => {
     expect([hex(runs[0]), runs[0]?.weight]).toEqual(['#abcdef', 700]);
   });
 
-  it('snaps a configured highlight weight to the nearest declared face', () => {
-    expect(highlightWeight(contextOf([], { values: { 'highlight-weight': 600 } }))).toBe(500);
-    expect(highlightWeight(contextOf([], { values: { 'highlight-weight': 650 } }))).toBe(700);
-    expect(highlightWeight(contextOf([]))).toBe(500);
+  it('draws a configured highlight weight at the nearest declared face, a tie to the heavier', () => {
+    // The kit snaps it (TYTO-619) from the faces the template passes: 550 sits nearest 500, and
+    // 600, halfway between 500 and 700, goes to 700 as CSS does.
+    const boldWeight = (values?: Record<string, number>) =>
+      named(
+        contextOf(
+          [{ kind: 'bold', children: words('c'), range }],
+          values === undefined ? undefined : { values },
+        ),
+        'paragrafo-1',
+      )?.runs?.[0]?.weight;
+
+    expect(boldWeight({ 'highlight-weight': 550 })).toBe(500);
+    expect(boldWeight({ 'highlight-weight': 600 })).toBe(700);
+    expect(boldWeight({ 'highlight-weight': 650 })).toBe(700);
+    expect(boldWeight()).toBe(500);
   });
 
   it('leaves a colour name it does not know as plain text', () => {

@@ -97,7 +97,7 @@ type Ink = (name: ColorName) => string;
 
 /** The numbers a configuration may change, by declared value name (Tyto ADR 0153). */
 export const NUMBER_DEFAULTS = {
-  /** The weight every highlight is set at, snapped to the nearest face the manifest lists. */
+  /** The weight every highlight is set at, at the nearest face the manifest lists (the kit's). */
   'highlight-weight': 500,
   /** The cover's title is set at the largest size between these that keeps it in its room. */
   'title-floor': 56,
@@ -158,8 +158,8 @@ const MEDIUM = 500;
 const BOLD = 700;
 /** The reference sets the cover in ExtraBlack, which Tyto has no face for: Black, the maintainer's call. */
 const BLACK = 900;
-/** The faces the manifest lists: a highlight weight between them is set at the nearest. */
-const WEIGHTS = [LIGHT, REGULAR, MEDIUM, BOLD, BLACK] as const;
+/** The faces the manifest lists: the kit sets a highlight weight between them at the nearest. */
+const FACES = [LIGHT, REGULAR, MEDIUM, BOLD, BLACK].map((weight) => ({ weight }));
 
 /**
  * CircularXX's vertical metrics, in em, from its `OS/2` table and the same in every weight: a
@@ -646,11 +646,9 @@ function paragraph(
   setting: Omit<Setting, 'size'> = { letterSpacing: 0 },
 ): TextDraft {
   const style = { font: FACE, size, weight: LIGHT, color: ink('body-ink') };
-  // The kit reads `highlight-weight` as written; the template sets it at the nearest face it
-  // lists, so a configuration cannot ask for a weight nothing measures.
-  const marks = highlightsFromValues(context, HIGHLIGHT_SPEC).with({
-    bold: { weight: highlightWeight(context) },
-  });
+  // Given the faces the manifest lists, the kit sets `highlight-weight` at the nearest of them,
+  // so a configuration cannot ask for a weight nothing measures.
+  const marks = highlightsFromValues(context, HIGHLIGHT_SPEC, undefined, FACES);
   const runs = setting.runs ?? runsOf(line, style, marks.options);
   return textRuns(name, runs, {
     x: BODY.x,
@@ -660,14 +658,6 @@ function paragraph(
     width: BODY.width,
     letterSpacing: setting.letterSpacing,
   });
-}
-
-/** The configured highlight weight, at the nearest face the manifest lists. */
-export function highlightWeight(context: TemplateContext): number {
-  const asked = numberValue(context, 'highlight-weight', NUMBER_DEFAULTS['highlight-weight']);
-  return WEIGHTS.reduce((best, each) =>
-    Math.abs(each - asked) < Math.abs(best - asked) ? each : best,
-  );
 }
 
 /**

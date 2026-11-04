@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 
 import { defineTemplate, parseFormats, parseManifest } from '@tyto/core';
+import { fallbackChain } from '@tyto/core/template';
 import { compileTemplate } from '@tyto/template-kit/testing';
 import { describe, expect, it } from 'vitest';
 
@@ -41,16 +42,11 @@ function facesIn(node: unknown, found = new Set<string>()): Set<string> {
 /** The examples a test compiles: every one the repository ships. */
 const EXAMPLES = ['diferenca', 'formula'] as const;
 
-/**
- * Tyto's symbol chain for a run of this weight (Tyto ADR 0168): Noto Sans Math 400, then Source
- * Sans 3 at the nearest of the weights it ships, 400 and 700, a tie going to the heavier.
- *
- * `@tyto/core` 0.37.0 does not export its `fallbackChain`, so the rule is written here, as the
- * ADR states it; when core exports it, this function is that import.
- */
+/** Tyto's symbol chain for a run of this weight (Tyto ADR 0168), as `family weight`. */
 function symbolChain(weight: number): readonly string[] {
-  const textWeight = Math.abs(weight - 400) < Math.abs(weight - 700) ? 400 : 700;
-  return ['Noto Sans Math 400', `Source Sans 3 ${String(textWeight)}`];
+  return fallbackChain({ weight, style: 'normal' }).map(
+    (face) => `${face.family} ${String(face.weight)}`,
+  );
 }
 
 /** The `family weight` of every face the manifest lists. */

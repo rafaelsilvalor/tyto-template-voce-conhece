@@ -1,6 +1,6 @@
 {
   "name": "voce-conhece",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "engine": ">=0.14",
   "contributes": ["template-pack"],
   "permissions": ["font:CircularXX"]

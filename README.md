@@ -22,7 +22,7 @@ templates:
   voce-conhece:
     source:
       git: https://github.com/rafaelsilvalor/tyto-template-voce-conhece.git
-      ref: v0.4.0
+      ref: v0.4.1
 ```
 
 Or install the default branch, as it is:

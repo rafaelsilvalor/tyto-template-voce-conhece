@@ -1,7 +1,7 @@
 import { noBrandKit } from '@tyto/core';
 import { describe, expect, it } from 'vitest';
 
-import { DEFAULT_SIGN_OFF_TITLE, NUMBER_DEFAULTS, build, roleOf } from './template.js';
+import { DEFAULT_SIGN_OFF_TITLE, FRAME, NUMBER_DEFAULTS, build, roleOf } from './template.js';
 
 import type { AssetRef, RichText, SlotValue, TemplateContext } from '@tyto/core';
 
@@ -383,13 +383,7 @@ describe('an explanation', () => {
     const names = framed().map((node) => node.name);
 
     expect(names).toEqual(
-      expect.arrayContaining([
-        'moldura',
-        'fundo-imagem',
-        'imagem',
-        'canto-superior',
-        'canto-inferior',
-      ]),
+      expect.arrayContaining(['moldura', 'fundo-imagem', 'imagem', 'contorno']),
     );
     expect(border(framed())).toBe('#204e72');
     expect(border(framed({ deep: '#123456' }))).toBe('#123456');
@@ -412,11 +406,56 @@ describe('an explanation', () => {
       }),
     );
     const tops = nodes
-      .filter((node) => ['moldura', 'canto-superior', 'canto-inferior'].includes(node.name ?? ''))
+      .filter((node) => ['moldura', 'contorno'].includes(node.name ?? ''))
       .map((node) => node.transform?.y ?? Number.NaN);
 
-    expect(tops).toHaveLength(3);
+    expect(tops).toHaveLength(2);
     for (const top of tops) expect(Number.isInteger(top)).toBe(true);
+  });
+
+  it("draws the frame's ink as one outline whose inside is the paper, so no seam shows", () => {
+    const nodes = drawn(
+      contextOf(words('x'), {
+        blocks: [
+          {
+            kind: 'slot',
+            slot: {
+              name: 'imagem',
+              adjustments: [],
+              value: { kind: 'image', asset: asset('p', 200, 100) },
+            },
+          },
+        ],
+      }),
+    );
+    const named = (name: string) =>
+      nodes.find((node) => node.name === name) as Node & {
+        geometry?: { kind: string; d: string; fillRule: string };
+        fill?: unknown;
+        size: { w: number; h: number };
+      };
+    const outline = named('contorno');
+    const frame = named('moldura');
+    const paper = named('fundo-imagem');
+    // One piece of the frame's ink, over the paper and the picture: no corner pieces of their own.
+    expect(nodes.map((node) => node.name).filter((name) => name?.startsWith('canto'))).toEqual([]);
+    expect(nodes.indexOf(outline)).toBeGreaterThan(nodes.indexOf(named('imagem')));
+    expect(outline.transform).toEqual(frame.transform);
+    expect(outline.size).toEqual(frame.size);
+    expect(outline.geometry?.fillRule).toBe('evenodd');
+    expect(outline.fill).toEqual(frame.fill);
+    // The outline's hole is exactly the paper: its edges, in the slide's coordinates.
+    const d = outline.geometry?.d ?? '';
+    const hole = d.slice(d.indexOf('M', 1));
+    const numbers = [...hole.matchAll(/-?\d+(?:\.\d+)?/g)].map((match) => Number(match[0]));
+    const [startX, top, right, foot] = [numbers[0]!, numbers[1]!, numbers[2]!, numbers[3]!];
+    const origin = { x: frame.transform!.x, y: frame.transform!.y };
+    const r = FRAME.radius;
+    expect(origin.x + startX - r).toBe(paper.transform!.x);
+    expect(origin.y + top).toBe(paper.transform!.y);
+    expect(origin.x + right).toBe(paper.transform!.x + paper.size.w);
+    expect(origin.y + foot).toBe(paper.transform!.y + paper.size.h);
+    expect(hole).toContain(`A${r} ${r} 0 0 1`);
   });
 
   it('draws a picture marked {sem-quadro} without the frame, at the paragraphs width', () => {

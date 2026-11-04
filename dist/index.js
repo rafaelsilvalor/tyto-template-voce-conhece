@@ -22356,6 +22356,11 @@ var COLOR_DEFAULTS = {
   deep: "#204e72",
   /** The cover's title, its button and the sign-off's title, when no brand kit gives one. */
   accent: "#1d9ad5",
+  /**
+   * An explanation's `{titulo}`: the deep colour, not the accent (the maintainer, 2026-11-04),
+   * and never the brand kit's accent; its `{cor:…}` marks keep their own colours.
+   */
+  "slide-title-color": "#204e72",
   /** The words and icons on the deep colour. */
   "on-deep": "#ffffff",
   /** The paper of the explanation slides. */
@@ -22481,7 +22486,7 @@ var build = (context) => {
     background: solid(ink("paper")),
     children: [
       at(SIDE_X, LOGO.y, drawLogo(context.brand, LOGO.height, oneInk(ink("deep")))),
-      ...explanation(context, ink, accent),
+      ...explanation(context, ink),
       footSignature(context.brand, BODY_SIGNATURE_TOP, ink("body-ink")),
       ...last ? [] : [arrow(BODY_ARROW, ink("deep"))]
     ]
@@ -22524,6 +22529,18 @@ function cover(context, onDeep, accent) {
 }
 function capitals(words) {
   return words.toLocaleUpperCase("pt-BR");
+}
+function capitalRuns(runs) {
+  const texts = runs.flatMap((each, index) => each.kind === "text" ? [index] : []);
+  const first = texts[0];
+  const last = texts[texts.length - 1];
+  return runs.map((each, index) => {
+    if (each.kind !== "text") return each;
+    let words = capitals(each.text);
+    if (index === first) words = words.trimStart();
+    if (index === last) words = words.trimEnd();
+    return { ...each, text: words };
+  });
 }
 function coverTitle(context, written, capTop, color2) {
   const sizes = sizesBetween(context, "title");
@@ -22628,9 +22645,9 @@ var SIDE_X = 80;
 var FOOTER_TOP = 1255;
 var ROOM = { top: LOGO.y + LOGO.height + BODY2.margin, bottom: FOOTER_TOP - BODY2.margin };
 var BODY_ARROW = { x: 857, y: 1256, w: 145, h: 34, shaft: 9 };
-function explanation(context, ink, accent) {
+function explanation(context, ink) {
   const { title, parts } = titled(context, slideParts(context));
-  const heading = title === void 0 ? void 0 : slideTitle(context, title, accent);
+  const heading = title === void 0 ? void 0 : slideTitle(context, title, ink("slide-title-color"));
   const paragraphTexts = [];
   const piecesAt = (size2, settings2 = /* @__PURE__ */ new Map()) => {
     let count = 0;
@@ -22704,25 +22721,24 @@ function titled(context, parts) {
   const first = parts[0];
   if (context.adjustments["titulo"] !== true || first?.kind !== "lines") return { parts };
   const [line, ...rest] = first.lines;
-  const title = line === void 0 ? "" : plain(line).trim();
+  const title = line ?? [];
   const after = rest.length === 0 ? parts.slice(1) : [{ kind: "lines", lines: rest }, ...parts.slice(1)];
   return { title, parts: after };
 }
 function slideTitle(context, written, color2) {
-  const words = capitals(written);
-  const draftAt = (setting2, capTop) => {
-    const placed = {
-      x: BODY2.x,
-      capTop,
-      size: setting2.size,
-      weight: BLACK,
-      color: color2,
-      lineHeight: BODY2.titleLineHeight,
-      width: BODY2.width,
-      letterSpacing: setting2.letterSpacing
-    };
-    return setting2.runs === void 0 ? textAt("titulo-lamina", words, placed) : textRuns("titulo-lamina", setting2.runs, placed);
-  };
+  const words = capitals(plain(written).trim());
+  const marks = highlightsFromValues(context, HIGHLIGHT_SPEC, void 0, FACES).with({
+    bold: { weight: BLACK, color: color2 }
+  });
+  const runsAt = (size2) => capitalRuns(runsOf(written, { font: FACE2, size: size2, weight: BLACK, color: color2 }, marks.options));
+  const draftAt = (setting2, capTop) => textRuns("titulo-lamina", setting2.runs ?? runsAt(setting2.size), {
+    x: BODY2.x,
+    capTop,
+    size: setting2.size,
+    lineHeight: BODY2.titleLineHeight,
+    width: BODY2.width,
+    letterSpacing: setting2.letterSpacing
+  });
   const widest = (setting2) => {
     const measured = context.measure(draftAt(setting2, 0));
     if (measured !== void 0) return measured.width;

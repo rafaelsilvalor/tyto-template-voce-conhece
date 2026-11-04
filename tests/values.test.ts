@@ -50,6 +50,11 @@ describe('declared values', () => {
     expect(declared['orphan-tracking']?.default).toBe(0.01);
   });
 
+  it("keeps an explanation's {titulo} in the deep colour, #204e72", () => {
+    expect(declared['slide-title-color']?.default).toBe('#204e72');
+    expect(COLOR_DEFAULTS['slide-title-color']).toBe('#204e72');
+  });
+
   it('draws the same HTML with every default supplied as with no values at all', async () => {
     const supplied = Object.fromEntries(
       Object.entries(FALLBACKS).map(([name, value]) => [name, { value }]),

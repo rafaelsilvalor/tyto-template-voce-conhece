@@ -1,5 +1,5 @@
 name: voce-conhece
-version: 0.4.1
+version: 0.5.0
 # The engineering brand of the private brand kit (Tyto TYTO-611): its logo, signature and accent.
 # Without that brand in the installed kit, the logo and the signature are placeholders.
 brand: engenharia
@@ -42,7 +42,8 @@ slots:
 adjustments:
   capa: { type: flag, applies: [lamina] }
   fecho: { type: flag, applies: [lamina] }
-  # On an explanation, its first line is a title, set as the cover's (Black, capitals, accent).
+  # On an explanation, its first line is a title, set as the cover's (Black, capitals), in
+  # `slide-title-color`; its `{cor:…}` marks keep their colours.
   titulo: { type: flag, applies: [lamina] }
   # On an `::imagem` line, `::imagem {sem-quadro} ./foto.png`: that picture without the frame.
   sem-quadro: { type: flag, applies: [imagem] }
@@ -58,6 +59,9 @@ values:
   cover-background: { type: image }
   # The cover's title, its button and the sign-off's title, when no brand kit gives one.
   accent: { type: color, default: '#1d9ad5' }
+  # An explanation's `{titulo}`, the deep colour: never the brand kit's accent. A `{cor:…}` in it
+  # keeps its own `mark-cor-*` colour; `**x**` changes nothing visible in a Black heading.
+  slide-title-color: { type: color, default: '#204e72' }
   # The words and icons on the deep colour.
   on-deep: { type: color, default: '#ffffff' }
   # The paper of the explanation slides.

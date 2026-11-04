@@ -22,7 +22,7 @@ templates:
   voce-conhece:
     source:
       git: https://github.com/rafaelsilvalor/tyto-template-voce-conhece.git
-      ref: v0.4.1
+      ref: v0.5.0
 ```
 
 Or install the default branch, as it is:
@@ -74,8 +74,12 @@ formats: [grid]
   `body-ceiling` (the reference's 40 px) that fits between the logo and the footer, and the
   block is centred where the reference centres it.
 - **A title on an explanation**, `{titulo}`: the slide's first line is drawn over the
-  paragraphs as the cover's title is (Black, capitals, the accent), at the largest size between
-  `slide-title-floor` and `slide-title-ceiling` at which no word runs past the paragraphs.
+  paragraphs as the cover's title is (Black, capitals), in `slide-title-color` (`#204e72`, the
+  deep colour, never the brand kit's accent), at the largest size between `slide-title-floor`
+  and `slide-title-ceiling` at which no word runs past the paragraphs. It keeps the brief's
+  marks: `{cor:verde}x{/}` and the other three are drawn in their `mark-cor-*` colours, still
+  Black. `**x**` changes nothing visible there: the heading is already at the heaviest face,
+  and bold takes the title's colour.
 - **Pictures**: `::imagem ./figura.png` after the slide's `::lamina` shows the file where it is
   written among the lines, in questao-estrategica's frame (a border with a bar down the left,
   rounded inside corners and a shadow), its border in `deep`. The frame is as tall as the
@@ -103,9 +107,9 @@ which Tyto has no face for: it is Black (900), the maintainer's call.
 
 `templates/voce-conhece/manifest.yaml` declares, as `values` (Tyto ADR 0153):
 
-- ten colours: `deep` (the cover's and the sign-off's), `accent`, `on-deep`, `paper`,
-  `body-ink`, `highlight-color` (`**x**`) and the four `mark-cor-azul`, `-vermelho`, `-verde`
-  and `-ocre`, the names every Tyto template shares (0.4.0 renamed them from `highlight-ink` and
+- eleven colours: `deep` (the cover's and the sign-off's), `accent`, `slide-title-color` (an
+  explanation's `{titulo}`, 0.5.0), `on-deep`, `paper`, `body-ink`, `highlight-color` (`**x**`)
+  and the four `mark-cor-azul`, `-vermelho`, `-verde` and `-ocre`, the names every Tyto template shares (0.4.0 renamed them from `highlight-ink` and
   `highlight-<colour>`: a configuration that set the old names sets the new ones). The accent is the brand kit's when it has one (Tyto ADR 0155); `#1d9ad5` is a
   neutral stand-in.
 - `highlight-weight` (500): set at the nearest of the faces the manifest lists.

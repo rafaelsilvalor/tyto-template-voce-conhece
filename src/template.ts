@@ -77,6 +77,11 @@ export const COLOR_DEFAULTS = {
   deep: '#204e72',
   /** The cover's title, its button and the sign-off's title, when no brand kit gives one. */
   accent: '#1d9ad5',
+  /**
+   * An explanation's `{titulo}`: the deep colour, not the accent (the maintainer, 2026-11-04),
+   * and never the brand kit's accent; its `{cor:…}` marks keep their own colours.
+   */
+  'slide-title-color': '#204e72',
   /** The words and icons on the deep colour. */
   'on-deep': '#ffffff',
   /** The paper of the explanation slides. */
@@ -257,7 +262,7 @@ export const build: TemplateBuild = (context: TemplateContext) => {
     background: solid(ink('paper')),
     children: [
       at(SIDE_X, LOGO.y, drawLogo(context.brand, LOGO.height, oneInk(ink('deep')))),
-      ...explanation(context, ink, accent),
+      ...explanation(context, ink),
       footSignature(context.brand, BODY_SIGNATURE_TOP, ink('body-ink')),
       ...(last ? [] : [arrow(BODY_ARROW, ink('deep'))]),
     ],
@@ -312,6 +317,20 @@ function cover(context: TemplateContext, onDeep: string, accent: string): NodeDr
 /** Upper case as Portuguese writes it. */
 function capitals(words: string): string {
   return words.toLocaleUpperCase('pt-BR');
+}
+
+/** Runs in capitals, as `capitals`, with the space before the first word and after the last cut. */
+function capitalRuns(runs: readonly TextRun[]): TextRun[] {
+  const texts = runs.flatMap((each, index) => (each.kind === 'text' ? [index] : []));
+  const first = texts[0];
+  const last = texts[texts.length - 1];
+  return runs.map((each, index) => {
+    if (each.kind !== 'text') return each;
+    let words = capitals(each.text);
+    if (index === first) words = words.trimStart();
+    if (index === last) words = words.trimEnd();
+    return { ...each, text: words };
+  });
 }
 
 /**
@@ -460,9 +479,10 @@ interface Piece {
  * at the largest size between `body-floor` and `body-ceiling` at which they fit between the
  * logo and the footer. When not even the floor fits, the floor, reported as an overflow.
  */
-function explanation(context: TemplateContext, ink: Ink, accent: string): NodeDraft[] {
+function explanation(context: TemplateContext, ink: Ink): NodeDraft[] {
   const { title, parts } = titled(context, slideParts(context));
-  const heading = title === undefined ? undefined : slideTitle(context, title, accent);
+  const heading =
+    title === undefined ? undefined : slideTitle(context, title, ink('slide-title-color'));
   /** Each paragraph's spacing and rebroken runs, by its index among the paragraphs. */
   type Settings = ReadonlyMap<number, Omit<Setting, 'size'>>;
   const paragraphTexts: TextDraft[] = [];
@@ -556,11 +576,11 @@ function explanation(context: TemplateContext, ink: Ink, accent: string): NodeDr
 function titled(
   context: TemplateContext,
   parts: readonly Part[],
-): { readonly title?: string; readonly parts: readonly Part[] } {
+): { readonly title?: RichText; readonly parts: readonly Part[] } {
   const first = parts[0];
   if (context.adjustments['titulo'] !== true || first?.kind !== 'lines') return { parts };
   const [line, ...rest] = first.lines;
-  const title = line === undefined ? '' : plain(line).trim();
+  const title = line ?? [];
   const after: Part[] =
     rest.length === 0 ? parts.slice(1) : [{ kind: 'lines', lines: rest }, ...parts.slice(1)];
   return { title, parts: after };
@@ -568,30 +588,33 @@ function titled(
 
 /**
  * A `{titulo}`, set as the cover's title (the maintainer, 2026-11-04): Black, in capitals, in
- * the accent, at the largest size between `slide-title-floor` and `slide-title-ceiling` at
- * which no word runs past the paragraphs' width.
+ * `slide-title-color`, at the largest size between `slide-title-floor` and
+ * `slide-title-ceiling` at which no word runs past the paragraphs' width.
+ *
+ * It keeps the brief's marks as the paragraphs do (the maintainer, 2026-11-04): `{cor:…}` in its
+ * `mark-cor-*` colour. Every highlight here stays Black, and `**x**` takes the title's own
+ * colour, so bold changes nothing visible in a heading already at the heaviest face.
  */
 function slideTitle(
   context: TemplateContext,
-  written: string,
+  written: RichText,
   color: string,
 ): Piece & { readonly gap: number } {
-  const words = capitals(written);
-  const draftAt = (setting: Setting, capTop: number) => {
-    const placed = {
+  const words = capitals(plain(written).trim());
+  const marks = highlightsFromValues(context, HIGHLIGHT_SPEC, undefined, FACES).with({
+    bold: { weight: BLACK, color },
+  });
+  const runsAt = (size: number): TextRun[] =>
+    capitalRuns(runsOf(written, { font: FACE, size, weight: BLACK, color }, marks.options));
+  const draftAt = (setting: Setting, capTop: number) =>
+    textRuns('titulo-lamina', setting.runs ?? runsAt(setting.size), {
       x: BODY.x,
       capTop,
       size: setting.size,
-      weight: BLACK,
-      color,
       lineHeight: BODY.titleLineHeight,
       width: BODY.width,
       letterSpacing: setting.letterSpacing,
-    };
-    return setting.runs === undefined
-      ? textAt('titulo-lamina', words, placed)
-      : textRuns('titulo-lamina', setting.runs, placed);
-  };
+    });
   const widest = (setting: Setting): number => {
     const measured = context.measure(draftAt(setting, 0));
     if (measured !== undefined) return measured.width;

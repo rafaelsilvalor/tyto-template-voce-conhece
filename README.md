@@ -6,7 +6,7 @@ explanation slides with coloured highlights and pictures among the lines, and a 
 
 **This repository holds the composition only.** The logo and the signature are not here: Tyto
 hands them to the template from the brand kit installed on the machine, under the manifest's
-brand `marinho`, and without one it draws placeholders (Tyto ADR 0063, ADR 0065). The cover's
+brand `engenharia`, and without one it draws placeholders (Tyto ADR 0063, ADR 0065). The cover's
 picture and every image are the brief's. The example brief is invented copy.
 
 ## Install into Tyto

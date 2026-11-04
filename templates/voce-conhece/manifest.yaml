@@ -1,0 +1,56 @@
+name: voce-conhece
+version: 0.1.0
+brand: marinho
+description: A "do you know the difference" carousel at 1080×1350 — a cover with the question, explanation slides with coloured highlights and pictures among the lines, and a sign-off.
+# Every face the slides set is declared, so the plugin's process can measure them (Tyto ADR 0048).
+# CircularXX is licensed: it crosses only under the manifest's `font:CircularXX`, approved at
+# install. `tests/faces.test.ts` holds this list equal to the faces the example draws.
+faces:
+  - { family: CircularXX, weight: 300 }
+  - { family: CircularXX, weight: 500 }
+  - { family: CircularXX, weight: 700 }
+  - { family: CircularXX, weight: 900 }
+fonts:
+  CircularXX: { alternatives: [Inter, Manrope, DM Sans] }
+formats: [grid]
+slots:
+  # The cover's picture, 1080 × 1350, full bleed under the words. In the frontmatter:
+  # `fundo: ./arte.png`. Without it the cover is the deep colour, flat.
+  fundo: { type: image }
+  # The pictures an explanation slide shows (a chart, a formula), each where it is written among
+  # the slide's lines (Tyto ADR 0160), as tall as its own shape makes it (Tyto ADR 0158). After
+  # the slide's `::lamina`, `::imagem ./figura.png`; the indented lines under it go on.
+  imagem: { type: image, per: lamina, multiple: true }
+  # One slide each, in order. The cover is `::lamina {capa}`: its first line the lead, the rest
+  # the title. An unmarked `::lamina` is an explanation: each line one paragraph, `**x**` a
+  # highlight and `{cor:azul|vermelho|verde|ocre}x{/}` a coloured one. The sign-off is
+  # `::lamina {fecho}`: empty, or one line that replaces its title. `max` counts slides.
+  lamina: { type: rich-text, repeat: true, min: 1, max: 10 }
+adjustments:
+  capa: { type: flag, applies: [lamina] }
+  fecho: { type: flag, applies: [lamina] }
+# What a configuration may change (Tyto ADR 0153). Each default is the reference art's, but for
+# the accent, which is the brand kit's when one is installed (Tyto ADR 0155): its default here is
+# a neutral stand-in. `tests/values.test.ts` pins every default to the code's fallback.
+values:
+  # The cover's and the sign-off's colour, where no picture covers it.
+  deep: { type: color, default: '#204e72' }
+  # The cover's picture for every brief of a configuration, full bleed under the words; a
+  # brief's own `fundo` wins over it. No default: without both, the cover is `deep`.
+  cover-background: { type: image }
+  # The cover's title, its button and the sign-off's title, when no brand kit gives one.
+  accent: { type: color, default: '#1d9ad5' }
+  # The words and icons on the deep colour.
+  on-deep: { type: color, default: '#ffffff' }
+  # The paper of the explanation slides.
+  paper: { type: color, default: '#ffffff' }
+  # The explanation's words, and the signature on paper.
+  body-ink: { type: color, default: '#4d4d4d' }
+  # `**x**`: its colour and its weight (one of the faces above).
+  highlight-ink: { type: color, default: '#4d4d4d' }
+  highlight-weight: { type: number, default: 500, min: 300, max: 900 }
+  # The four `{cor:…}` highlights, set at the highlight's weight.
+  highlight-azul: { type: color, default: '#2f628a' }
+  highlight-vermelho: { type: color, default: '#873131' }
+  highlight-verde: { type: color, default: '#39902e' }
+  highlight-ocre: { type: color, default: '#8a662d' }

@@ -1,0 +1,7 @@
+{
+  "name": "voce-conhece",
+  "version": "0.1.0",
+  "engine": ">=0.13",
+  "contributes": ["template-pack"],
+  "permissions": ["font:CircularXX"]
+}

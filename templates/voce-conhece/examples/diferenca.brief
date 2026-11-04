@@ -1,0 +1,19 @@
+---
+template: voce-conhece
+formats: [grid]
+---
+// One "do you know the difference" carousel in invented copy.
+
+::lamina {capa}
+  Você sabe a diferença entre
+  Trocador de calor e regenerador térmico?
+
+::lamina
+  O **trocador de calor** passa a energia de um fluido a outro através de uma parede, com os dois escoando ao mesmo tempo.
+  Já o {cor:azul}regenerador{/} guarda o calor numa matriz sólida e o devolve depois, com os fluidos passando em turnos.
+
+::lamina
+  No trocador, a taxa de calor segue Q = U · A · ΔT, e a área cresce quando ΔT cai.
+  No regenerador, a matriz alterna entre {cor:vermelho}aquecer{/} e {cor:verde}esfriar{/}, e o rendimento depende do {cor:ocre}tempo de cada ciclo{/}.
+
+::lamina {fecho}

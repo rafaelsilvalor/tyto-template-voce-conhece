@@ -1,0 +1,5 @@
+node_modules/
+.cache/
+coverage/
+# The reference art never enters this repository (it carries the brand and real copy).
+*.psd

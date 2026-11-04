@@ -1,0 +1,3 @@
+# The size the example briefs render at. A pack brings templates and no formats: copy this
+# into the project that renders `voce-conhece`, or merge its line into that project's own.
+grid: { w: 1080, h: 1350, kind: grid, label: Grid }

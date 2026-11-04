@@ -1,0 +1,4 @@
+dist/
+pnpm-lock.yaml
+# Written by the tests, byte for byte: a reformat would fail them.
+tests/__snapshots__/

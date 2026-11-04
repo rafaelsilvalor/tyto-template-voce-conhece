@@ -1,5 +1,5 @@
 name: voce-conhece
-version: 0.2.0
+version: 0.3.0
 # The engineering brand of the private brand kit (Tyto TYTO-611): its logo, signature and accent.
 # Without that brand in the installed kit, the logo and the signature are placeholders.
 brand: engenharia
@@ -78,3 +78,8 @@ values:
   # An explanation's `{titulo}`: the largest size at which no word runs past the paragraphs.
   slide-title-floor: { type: length, default: 40, min: 28, max: 56 }
   slide-title-ceiling: { type: length, default: 56, min: 40, max: 94.23 }
+  # How far under its fitted size a title may go to keep a word off a line of its own, never
+  # under its floor, and the most letter spacing, in em, a title or paragraph may take for the
+  # same (Tyto ADR 0167). The paragraphs keep the size they share.
+  orphan-shrink: { type: number, default: 0.08, min: 0, max: 0.25 }
+  orphan-tracking: { type: number, default: 0.01, min: 0, max: 0.05 }

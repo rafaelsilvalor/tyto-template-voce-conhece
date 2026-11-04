@@ -1,78 +1,350 @@
 import { noBrandKit } from '@tyto/core';
 import { describe, expect, it } from 'vitest';
 
-import { DEFAULT_SIGN_OFF_TITLE, build, roleOf } from './template.js';
+import {
+  DEFAULT_SIGN_OFF_TITLE,
+  NUMBER_DEFAULTS,
+  build,
+  highlightWeight,
+  roleOf,
+} from './template.js';
 
-import type { RichText, SlotValue, TemplateContext } from '@tyto/core';
+import type { AssetRef, RichText, SlotValue, TemplateContext } from '@tyto/core';
 
-/** A slide's context with nothing measured: the composition's rules, on the `Scene`. */
-function contextOf(
-  text: RichText,
-  adjustments: Record<string, boolean> = {},
-  values: Record<string, unknown> = {},
-): TemplateContext {
+/**
+ * The composition's rules on the `Scene`, without Tyto: a slide's context built by hand, with
+ * nothing measured unless a test hands in a `measure`, so line counts and widths come from the
+ * template's own estimate.
+ */
+
+interface Options {
+  readonly adjustments?: Record<string, boolean>;
+  readonly values?: Record<string, unknown>;
+  readonly blocks?: readonly unknown[];
+  readonly fundo?: AssetRef;
+  readonly index?: number;
+  readonly count?: number;
+  readonly measure?: (node: unknown) => { lines: number; width: number } | undefined;
+  readonly report?: (item: unknown) => void;
+}
+
+function contextOf(text: RichText, options: Options = {}): TemplateContext {
   const value: SlotValue = { kind: 'rich-text', text };
   return {
     format: 'grid',
     size: { w: 1080, h: 1350 },
     idPrefix: 'artwork-0-grid',
-    artwork: { id: 'artwork-0', index: 0, count: 1 },
-    slots: { lamina: { name: 'lamina', value, adjustments: [] } },
-    adjustments,
-    values,
+    artwork: { id: 'artwork-0', index: options.index ?? 0, count: options.count ?? 2 },
+    slots: {
+      lamina: {
+        name: 'lamina',
+        value,
+        adjustments: [],
+        ...(options.blocks === undefined ? {} : { blocks: options.blocks }),
+      },
+      ...(options.fundo === undefined
+        ? {}
+        : { fundo: { name: 'fundo', value: { kind: 'image', asset: options.fundo } } }),
+    },
+    adjustments: options.adjustments ?? {},
+    values: options.values ?? {},
     brand: noBrandKit,
-    measure: () => undefined,
-    report: () => undefined,
+    measure: options.measure ?? (() => undefined),
+    report: options.report ?? (() => undefined),
   } as unknown as TemplateContext;
 }
 
 const range = { start: 0, end: 1 };
 const words = (value: string): RichText => [{ kind: 'text', value, range }];
 const brk = { kind: 'break', range } as const;
+const asset = (id: string, w: number, h: number): AssetRef => ({
+  id,
+  source: 'file',
+  path: `${id}.png`,
+  hash: id,
+  size: { w, h },
+});
 
-type Node = {
-  kind: string;
-  name?: string;
-  runs?: { text?: string; weight?: number; color?: unknown }[];
-};
-
-function textNamed(context: TemplateContext, name: string): Node | undefined {
-  const children = (build(context) as unknown as { children: Node[] }).children;
-  return children.find((child) => child.name === name);
+interface Run {
+  readonly text?: string;
+  readonly weight?: number;
+  readonly size?: number;
+  readonly color?: { readonly color?: { r: number; g: number; b: number } };
 }
+interface Node {
+  readonly kind: string;
+  readonly name?: string;
+  readonly runs?: readonly Run[];
+  readonly size?: { readonly w: number; readonly h: number };
+  readonly transform?: { readonly x: number; readonly y: number };
+}
+
+const drawn = (context: TemplateContext): Node[] =>
+  (build(context) as unknown as { children: Node[] }).children;
+const named = (context: TemplateContext, name: string): Node | undefined =>
+  drawn(context).find((child) => child.name === name);
+const hex = (run: Run | undefined): string => {
+  const c = run?.color?.color;
+  if (c === undefined) return '';
+  const two = (v: number) => Math.round(v).toString(16).padStart(2, '0');
+  return `#${two(c.r)}${two(c.g)}${two(c.b)}`;
+};
 
 describe('the slides', () => {
   it('reads the role from the slide flags', () => {
-    expect(roleOf(contextOf(words('x'), { capa: true }))).toBe('capa');
-    expect(roleOf(contextOf(words('x'), { fecho: true }))).toBe('fecho');
+    expect(roleOf(contextOf(words('x'), { adjustments: { capa: true } }))).toBe('capa');
+    expect(roleOf(contextOf(words('x'), { adjustments: { fecho: true } }))).toBe('fecho');
+    expect(roleOf(contextOf(words('x'), { adjustments: { titulo: true } }))).toBe('explicacao');
     expect(roleOf(contextOf(words('x')))).toBe('explicacao');
   });
 
-  it("sets the cover's lead and title in capitals", () => {
-    const context = contextOf([...words('Você sabe'), brk, ...words('Tal e qual?')], {
-      capa: true,
-    });
-
-    expect(textNamed(context, 'chamada')?.runs?.[0]?.text).toBe('VOCÊ SABE');
-    expect(textNamed(context, 'titulo')?.runs?.[0]?.text).toBe('TAL E QUAL?');
+  it('starts every text inside its slide', () => {
+    const slides = [
+      contextOf([...words('Você sabe'), brk, ...words('Tal e qual?')], {
+        adjustments: { capa: true },
+      }),
+      contextOf([...words('Um título'), brk, ...words('Um parágrafo.')], {
+        adjustments: { titulo: true },
+      }),
+      contextOf([], { adjustments: { fecho: true } }),
+    ];
+    for (const slide of slides) {
+      for (const node of drawn(slide).filter((each) => each.kind === 'text')) {
+        expect(node.transform?.x).toBeGreaterThanOrEqual(0);
+        expect(node.transform?.y).toBeGreaterThan(0);
+        expect(node.transform?.y).toBeLessThan(1350);
+      }
+    }
   });
 
-  it('draws the default sign-off title when the slide writes none', () => {
-    expect(textNamed(contextOf([], { fecho: true }), 'fecho-titulo')?.runs?.[0]?.text).toBe(
-      DEFAULT_SIGN_OFF_TITLE,
+  it('draws the arrow and the button on every slide but the last', () => {
+    const cover = (index: number) =>
+      contextOf(words('x'), { adjustments: { capa: true }, index, count: 2 });
+    const body = (index: number) => contextOf(words('x'), { index, count: 2 });
+
+    expect(named(cover(0), 'botao')).toBeDefined();
+    expect(named(cover(1), 'botao')).toBeUndefined();
+    expect(named(body(0), 'seta')).toBeDefined();
+    expect(named(body(1), 'seta')).toBeUndefined();
+  });
+});
+
+describe('the cover', () => {
+  it('sets the lead and the title in capitals, as Portuguese writes them', () => {
+    const context = contextOf([...words('Você sabe'), brk, ...words('Ação e reação?')], {
+      adjustments: { capa: true },
+    });
+
+    expect(named(context, 'chamada')?.runs?.[0]?.text).toBe('VOCÊ SABE');
+    expect(named(context, 'titulo')?.runs?.[0]?.text).toBe('AÇÃO E REAÇÃO?');
+  });
+
+  it('sets a short title at the ceiling and shrinks a long one, down to the floor', () => {
+    const size = (title: string) =>
+      named(
+        contextOf([...words('Lead'), brk, ...words(title)], { adjustments: { capa: true } }),
+        'titulo',
+      )?.runs?.[0]?.size;
+
+    expect(size('Curto')).toBe(NUMBER_DEFAULTS['title-ceiling']);
+    expect(size('Termorregulação')).toBeLessThan(NUMBER_DEFAULTS['title-ceiling']);
+    expect(size('Termorregulação')).toBeGreaterThanOrEqual(NUMBER_DEFAULTS['title-floor']);
+  });
+
+  it('reports an overflow when not even the floor holds the title', () => {
+    const reported: unknown[] = [];
+    const long = Array.from({ length: 40 }, () => 'palavra').join(' ');
+    drawn(
+      contextOf([...words('Lead'), brk, ...words(long)], {
+        adjustments: { capa: true },
+        report: (item) => reported.push(item),
+      }),
     );
+
+    expect(reported).toContainEqual(expect.objectContaining({ code: 'W_TEMPLATE_OVERFLOW' }));
+  });
+
+  it('shrinks the lead to stay on one line', () => {
+    const measure = (node: unknown) => {
+      const run = (node as { runs: Run[] }).runs[0];
+      // A stand-in face: the lead fits one line at 40 px or less.
+      return { lines: (run?.size ?? 0) > 40 ? 2 : 1, width: 100 };
+    };
+    const lead = named(
+      contextOf([...words('Lead longo'), brk, ...words('T')], {
+        adjustments: { capa: true },
+        measure,
+      }),
+      'chamada',
+    );
+
+    // 47.11, 46.11 … 40.11 are over 40 px: 39.11 is the largest on one line.
+    expect(lead?.runs?.[0]?.size).toBe(39.11);
+  });
+
+  it('draws the brief picture under the words, full bleed', () => {
+    const picture = named(
+      contextOf(words('x'), { adjustments: { capa: true }, fundo: asset('arte', 1080, 1350) }),
+      'fundo',
+    );
+
+    expect(picture?.size).toEqual({ w: 1080, h: 1350 });
+  });
+});
+
+describe('an explanation', () => {
+  it('draws one paragraph per line', () => {
+    const context = contextOf([...words('Um.'), brk, ...words('Dois.'), brk, ...words('Três.')]);
+    const names = drawn(context)
+      .map((node) => node.name)
+      .filter((name) => name?.startsWith('paragrafo'));
+
+    expect(names).toEqual(['paragrafo-1', 'paragrafo-2', 'paragrafo-3']);
   });
 
   it('sets a coloured highlight at the highlight weight, in its declared colour', () => {
     const marked: RichText = [
       ...words('a '),
       { kind: 'mark', key: 'cor', value: 'verde', children: words('b'), range },
+      ...words(' '),
+      { kind: 'bold', children: words('c'), range },
     ];
-    const runs = textNamed(contextOf(marked), 'paragrafo-1')?.runs ?? [];
+    const runs = named(contextOf(marked), 'paragrafo-1')?.runs ?? [];
 
-    expect(runs.map((each) => [each.text, each.weight])).toEqual([
-      ['a ', 300],
-      ['b', 500],
+    expect(runs.map((each) => [each.text, each.weight, hex(each)])).toEqual([
+      ['a ', 300, '#4d4d4d'],
+      ['b', 500, '#39902e'],
+      [' ', 300, '#4d4d4d'],
+      ['c', 500, '#4d4d4d'],
     ]);
+  });
+
+  it('paints `**x**` the configured highlight colour', () => {
+    const runs =
+      named(
+        contextOf([{ kind: 'bold', children: words('c'), range }], {
+          values: { 'highlight-ink': '#123456' },
+        }),
+        'paragrafo-1',
+      )?.runs ?? [];
+
+    expect(hex(runs[0])).toBe('#123456');
+  });
+
+  it('snaps a configured highlight weight to the nearest declared face', () => {
+    expect(highlightWeight(contextOf([], { values: { 'highlight-weight': 600 } }))).toBe(500);
+    expect(highlightWeight(contextOf([], { values: { 'highlight-weight': 650 } }))).toBe(700);
+    expect(highlightWeight(contextOf([]))).toBe(500);
+  });
+
+  it('leaves a colour name it does not know as plain text', () => {
+    const runs =
+      named(
+        contextOf([{ kind: 'mark', key: 'cor', value: 'roxo', children: words('b'), range }]),
+        'paragrafo-1',
+      )?.runs ?? [];
+
+    expect(runs.map((each) => [each.weight, hex(each)])).toEqual([[300, '#4d4d4d']]);
+  });
+
+  it('with {titulo}, draws the first line as a title over the paragraphs', () => {
+    const context = contextOf([...words('Na prática'), brk, ...words('Um parágrafo.')], {
+      adjustments: { titulo: true },
+    });
+    const title = named(context, 'titulo-lamina');
+    const first = named(context, 'paragrafo-1');
+
+    expect(title?.runs?.[0]?.text).toBe('NA PRÁTICA');
+    expect(title?.runs?.[0]?.weight).toBe(900);
+    expect(first?.runs?.[0]?.text).toBe('Um parágrafo.');
+    expect(first?.transform?.y).toBeGreaterThan(title?.transform?.y ?? Infinity);
+  });
+
+  it('without {titulo}, draws no title', () => {
+    const context = contextOf([...words('Na prática'), brk, ...words('Um parágrafo.')]);
+
+    expect(named(context, 'titulo-lamina')).toBeUndefined();
+    expect(named(context, 'paragrafo-1')?.runs?.[0]?.text).toBe('Na prática');
+  });
+
+  it("sets the slide title between its floor and ceiling, and the body's the same way", () => {
+    const short = contextOf([...words('Curto'), brk, ...words('Pouco.')], {
+      adjustments: { titulo: true },
+    });
+
+    expect(named(short, 'titulo-lamina')?.runs?.[0]?.size).toBe(
+      NUMBER_DEFAULTS['slide-title-ceiling'],
+    );
+    expect(named(short, 'paragrafo-1')?.runs?.[0]?.size).toBe(NUMBER_DEFAULTS['body-ceiling']);
+
+    const long = Array.from({ length: 160 }, () => 'palavra').join(' ');
+    const crowded = named(contextOf(words(long)), 'paragrafo-1')?.runs?.[0]?.size ?? 0;
+
+    expect(crowded).toBeLessThan(NUMBER_DEFAULTS['body-ceiling']);
+    expect(crowded).toBeGreaterThanOrEqual(NUMBER_DEFAULTS['body-floor']);
+  });
+
+  it('places pictures among the lines in the order written, as tall as their shape', () => {
+    const blocks = [
+      { kind: 'text', text: words('Antes.'), range },
+      {
+        kind: 'slot',
+        slot: { name: 'imagem', value: { kind: 'image', asset: asset('a', 1540, 770) } },
+      },
+      { kind: 'text', text: words('Depois.'), range },
+    ];
+    const nodes = drawn(contextOf(words('Antes.'), { blocks }));
+    const order = nodes
+      .filter((node) => node.name === 'imagem' || node.name?.startsWith('paragrafo'))
+      .map((node) => node.name);
+    const picture = nodes.find((node) => node.name === 'imagem');
+
+    expect(order).toEqual(['paragrafo-1', 'imagem', 'paragrafo-2']);
+    // 2:1 at the paragraphs' 770 px.
+    expect(picture?.size).toEqual({ w: 770, h: 385 });
+  });
+
+  it('holds a picture between a 3:1 band and a square', () => {
+    const height = (w: number, h: number) =>
+      drawn(
+        contextOf(words('x'), {
+          blocks: [
+            {
+              kind: 'slot',
+              slot: { name: 'imagem', value: { kind: 'image', asset: asset('p', w, h) } },
+            },
+          ],
+        }),
+      ).find((node) => node.name === 'imagem')?.size?.h;
+
+    expect(height(1000, 100)).toBe(257);
+    expect(height(100, 1000)).toBe(770);
+  });
+});
+
+describe('the sign-off', () => {
+  it('draws the default title, or the one line the slide writes', () => {
+    expect(
+      named(contextOf([], { adjustments: { fecho: true } }), 'fecho-titulo')?.runs?.[0]?.text,
+    ).toBe(DEFAULT_SIGN_OFF_TITLE);
+    expect(
+      named(contextOf(words('Curtiu?'), { adjustments: { fecho: true } }), 'fecho-titulo')
+        ?.runs?.[0]?.text,
+    ).toBe('Curtiu?');
+  });
+
+  it('draws the four icon rows and the signature', () => {
+    const names = drawn(contextOf([], { adjustments: { fecho: true } })).map((node) => node.name);
+
+    expect(names).toEqual(
+      expect.arrayContaining([
+        'curtir',
+        'marcar',
+        'salvar',
+        'compartilhar',
+        'curtir-texto',
+        'assinatura',
+      ]),
+    );
   });
 });

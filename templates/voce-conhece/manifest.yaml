@@ -7,6 +7,7 @@ description: A "do you know the difference" carousel at 1080×1350 — a cover w
 # install. `tests/faces.test.ts` holds this list equal to the faces the example draws.
 faces:
   - { family: CircularXX, weight: 300 }
+  - { family: CircularXX, weight: 400 }
   - { family: CircularXX, weight: 500 }
   - { family: CircularXX, weight: 700 }
   - { family: CircularXX, weight: 900 }
@@ -24,11 +25,14 @@ slots:
   # One slide each, in order. The cover is `::lamina {capa}`: its first line the lead, the rest
   # the title. An unmarked `::lamina` is an explanation: each line one paragraph, `**x**` a
   # highlight and `{cor:azul|vermelho|verde|ocre}x{/}` a coloured one. The sign-off is
-  # `::lamina {fecho}`: empty, or one line that replaces its title. `max` counts slides.
+  # `::lamina {fecho}`: empty, or one line that replaces its title. `::lamina {titulo}` is an
+  # explanation whose first line is a title. `max` counts slides.
   lamina: { type: rich-text, repeat: true, min: 1, max: 10 }
 adjustments:
   capa: { type: flag, applies: [lamina] }
   fecho: { type: flag, applies: [lamina] }
+  # On an explanation, its first line is a title, set as the cover's (Black, capitals, accent).
+  titulo: { type: flag, applies: [lamina] }
 # What a configuration may change (Tyto ADR 0153). Each default is the reference art's, but for
 # the accent, which is the brand kit's when one is installed (Tyto ADR 0155): its default here is
 # a neutral stand-in. `tests/values.test.ts` pins every default to the code's fallback.
@@ -48,9 +52,23 @@ values:
   body-ink: { type: color, default: '#4d4d4d' }
   # `**x**`: its colour and its weight (one of the faces above).
   highlight-ink: { type: color, default: '#4d4d4d' }
+  # A weight between the faces is set at the nearest one.
   highlight-weight: { type: number, default: 500, min: 300, max: 900 }
   # The four `{cor:…}` highlights, set at the highlight's weight.
   highlight-azul: { type: color, default: '#2f628a' }
   highlight-vermelho: { type: color, default: '#873131' }
   highlight-verde: { type: color, default: '#39902e' }
   highlight-ocre: { type: color, default: '#8a662d' }
+  # The cover's title is set at the largest size between these that keeps it in its room, so a
+  # short title grows and a long one shrinks. Below the floor it overflows, reported.
+  title-floor: { type: length, default: 56, min: 32, max: 94.23 }
+  title-ceiling: { type: length, default: 94.23, min: 56, max: 140 }
+  # The explanation's paragraphs the same way: the reference's 40 px unless they do not fit.
+  body-floor: { type: length, default: 30, min: 20, max: 40 }
+  body-ceiling: { type: length, default: 40, min: 30, max: 64 }
+  # The cover's lead: the reference's size, smaller to stay on one line; at the floor it wraps.
+  lead-floor: { type: length, default: 32, min: 24, max: 47.11 }
+  lead-ceiling: { type: length, default: 47.11, min: 32, max: 72 }
+  # An explanation's `{titulo}`: the largest size at which no word runs past the paragraphs.
+  slide-title-floor: { type: length, default: 40, min: 28, max: 56 }
+  slide-title-ceiling: { type: length, default: 56, min: 40, max: 94.23 }

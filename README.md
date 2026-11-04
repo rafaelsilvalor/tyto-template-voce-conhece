@@ -50,13 +50,33 @@ formats: [grid]
   O **trocador de calor** passa a energia através de uma parede.
   Já o {cor:azul}regenerador{/} guarda o calor numa matriz sólida.
 
+::lamina {titulo}
+  Na prática
+  A taxa segue Q = U · A · ΔT.
+::imagem ./grafico.png
+  A área cresce quando ΔT cai.
+
 ::lamina {fecho}
 ```
 
 - **The cover**, `{capa}`: its first line is the lead, the rest the title, both in capitals.
+  The lead is set at the largest size between `lead-floor` and `lead-ceiling` that keeps it on
+  one line, and wraps at the floor; the title at the largest between `title-floor` and
+  `title-ceiling` at which no word runs past the cover and it ends over the button, reported as
+  `W_TEMPLATE_OVERFLOW` when not even the floor does. `fundo: ./arte.png` in the frontmatter
+  is a 1080 × 1350 picture under the words, full bleed; without it the cover is flat `deep`.
 - **An explanation**, an unmarked `::lamina`: each line one paragraph. `**x**` is a highlight
   at the highlight's weight and colour; `{cor:azul}x{/}`, `vermelho`, `verde` and `ocre` are
-  the four coloured ones. Math is written as Unicode characters (`ΔT`, `·`, `≤`).
+  the four coloured ones, at the same weight. Math is written as Unicode characters (`ΔT`,
+  `·`, `≤`). The paragraphs are set at the largest size between `body-floor` and
+  `body-ceiling` (the reference's 40 px) that fits between the logo and the footer, and the
+  block is centred where the reference centres it.
+- **A title on an explanation**, `{titulo}`: the slide's first line is drawn over the
+  paragraphs as the cover's title is (Black, capitals, the accent), at the largest size between
+  `slide-title-floor` and `slide-title-ceiling` at which no word runs past the paragraphs.
+- **Pictures**: `::imagem ./figura.png` after the slide's `::lamina` shows the file where it is
+  written among the lines, at the paragraphs' width and as tall as its shape makes it (Tyto
+  ADR 0158, ADR 0160), from a 3:1 band to a square; the indented lines under it go on.
 - **The sign-off**, `{fecho}`: empty, or one line that replaces its title.
 
 ## What it may reach
@@ -66,13 +86,24 @@ formats: [grid]
 | `font:CircularXX` | Every word is set in CircularXX, a licensed face (Tyto ADR 0048). |
 
 **The install asks for it once.** Faces Tyto ships cross to a plugin freely; a face installed
-on the machine crosses only under this permission.
+on the machine crosses only under this permission. The reference sets the cover in ExtraBlack,
+which Tyto has no face for: it is Black (900), the maintainer's call.
 
 ## What a configuration may change
 
-`templates/voce-conhece/manifest.yaml` declares the colours and the highlight's weight as
-`values` (Tyto ADR 0153). A configuration changes a value, never which pieces are drawn (Tyto
-ADR 0151).
+`templates/voce-conhece/manifest.yaml` declares, as `values` (Tyto ADR 0153):
+
+- ten colours: `deep` (the cover's and the sign-off's), `accent`, `on-deep`, `paper`,
+  `body-ink`, `highlight-ink` (`**x**`) and the four `highlight-azul`, `-vermelho`, `-verde`
+  and `-ocre`. The accent is the brand kit's when it has one (Tyto ADR 0155); `#1d9ad5` is a
+  neutral stand-in.
+- `highlight-weight` (500): set at the nearest of the faces the manifest lists.
+- four pairs of floor and ceiling, the font sizes each text is fitted between: `lead-*`,
+  `title-*`, `slide-title-*` and `body-*`.
+- `cover-background`, an image with no default: the cover's picture for every brief of a
+  configuration; a brief's own `fundo` wins over it.
+
+A configuration changes a value, never which pieces are drawn (Tyto ADR 0151).
 
 ## Development
 
@@ -91,7 +122,11 @@ pnpm install "--//npm.pkg.github.com/:_authToken=$(gh auth token)"
 
 The tests, all without Tyto:
 
-- `src/template.test.ts`: the carousel's rules on the scene.
+- `src/template.test.ts`: the carousel's rules on the scene — the slide each mark makes, the
+  arrow and button on every slide but the last, capitals as Portuguese writes them, each size
+  between its floor and ceiling and the overflow warning, the highlights' weight and colours
+  (an unknown colour left plain), the `{titulo}`, and pictures among the lines in the order
+  written, held between 3:1 and square.
 - `tests/examples.test.ts`: the example brief compiled as Tyto compiles it, through
   `@tyto/template-kit/testing` (Tyto ADR 0152), against the HTML of each slide in
   `tests/__snapshots__/`.

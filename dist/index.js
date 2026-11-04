@@ -21598,6 +21598,9 @@ var TemplateError = class extends Error {
     this.diagnostic = built;
   }
 };
+function isTonedMark(mark2) {
+  return "layers" in mark2;
+}
 var noBrandKit = Object.freeze({});
 var HEX = /^#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
 function expandShorthand(digits) {
@@ -21728,6 +21731,10 @@ function colorValue(context, name, fallback) {
   const value = context.values?.[name];
   return typeof value === "string" ? value : fallback;
 }
+function imageValue(context, name) {
+  const value = context.values?.[name];
+  return typeof value === "object" && "hash" in value ? value : void 0;
+}
 
 // node_modules/.pnpm/@rafaelsilvalor+tyto-core@0.36.1/node_modules/@rafaelsilvalor/tyto-core/dist/template.js
 function base(options) {
@@ -21742,6 +21749,18 @@ function base(options) {
     // key apart from an undefined one, and a strictObject rejects the latter.
     ...options.name !== void 0 ? { name: options.name } : {},
     ...options.mask !== void 0 ? { mask: options.mask } : {}
+  };
+}
+function rect(options) {
+  const radius = options.radius ?? 0;
+  return {
+    ...base(options),
+    kind: "rect",
+    size: options.size,
+    radius: typeof radius === "number" ? [radius, radius, radius, radius] : [...radius],
+    ...options.id !== void 0 ? { id: options.id } : {},
+    ...options.fill !== void 0 ? { fill: options.fill } : {},
+    ...options.stroke !== void 0 ? { stroke: options.stroke } : {}
   };
 }
 function text(options) {
@@ -21760,6 +21779,36 @@ function text(options) {
     // `clip` is the only overflow that needs no measurement, so it is what a template
     // that says nothing gets; `shrink` and `grow` are choices, and E4.5 acts on them.
     overflow: options.overflow ?? "clip",
+    ...options.id !== void 0 ? { id: options.id } : {}
+  };
+}
+function image(options) {
+  return {
+    ...base(options),
+    kind: "image",
+    asset: options.asset,
+    size: options.size,
+    fit: options.fit ?? "cover",
+    position: options.position ?? { x: 0.5, y: 0.5 },
+    ...options.id !== void 0 ? { id: options.id } : {}
+  };
+}
+function vector(options) {
+  return {
+    ...base(options),
+    kind: "vector",
+    geometry: options.geometry,
+    size: options.size,
+    ...options.id !== void 0 ? { id: options.id } : {},
+    ...options.fill !== void 0 ? { fill: options.fill } : {},
+    ...options.stroke !== void 0 ? { stroke: options.stroke } : {}
+  };
+}
+function group(options) {
+  return {
+    ...base(options),
+    kind: "group",
+    children: [...options.children],
     ...options.id !== void 0 ? { id: options.id } : {}
   };
 }
@@ -21827,6 +21876,31 @@ var BODY = {
 var OPTICAL_DROP = 0.15;
 
 // node_modules/.pnpm/@rafaelsilvalor+tyto-template-kit@0.9.0/node_modules/@rafaelsilvalor/tyto-template-kit/dist/index.js
+function shifted(draft, dx, dy) {
+  const transform2 = {
+    ...draft.transform,
+    x: draft.transform.x + dx,
+    y: draft.transform.y + dy
+  };
+  switch (draft.kind) {
+    case "group":
+      return { ...draft, transform: transform2 };
+    case "rect":
+      return { ...draft, transform: transform2 };
+    case "text":
+      return { ...draft, transform: transform2 };
+    case "image":
+      return { ...draft, transform: transform2 };
+    case "vector":
+      return { ...draft, transform: transform2 };
+  }
+}
+function block(width, height, draft) {
+  return { width, height, draft };
+}
+function at(x, y, item) {
+  return shifted(item.draft, x, y);
+}
 var NUMBER = String.raw`\d[\d.,]*`;
 var KEEP_TOGETHER_RULES = [
   { name: "currency sign + amount", before: String.raw`(?:R\$|US\$|€)`, after: String.raw`\d` },
@@ -21841,6 +21915,29 @@ var LABEL_EXCEPTIONS = [
   { name: "a time", pattern: String.raw`\d{1,2}:\d{2}` },
   { name: "a URL", pattern: String.raw`\p{L}[\p{L}\d+.-]*://\S*` }
 ];
+function mark(shape, height, fill, name) {
+  const scale = height / shape.box.h;
+  return block(
+    shape.box.w * scale,
+    height,
+    vector({
+      name,
+      geometry: { kind: "path", d: shape.d, fillRule: shape.fillRule },
+      size: shape.box,
+      fill: solid(fill),
+      transform: { scaleX: scale, scaleY: scale }
+    })
+  );
+}
+function imageHeight(asset, width, fallback) {
+  const size = asset?.size;
+  if (size === void 0 || !(size.w > 0) || !(size.h > 0)) return fallback;
+  return width * size.h / size.w;
+}
+function reportOverflow(report, bottom, limit) {
+  const overflow = bottom - limit;
+  if (overflow > 0) report({ code: "W_TEMPLATE_OVERFLOW", overflow });
+}
 function lines(text2) {
   const result = [];
   let current = [];
@@ -21869,8 +21966,46 @@ function plain(text2) {
 }
 
 // node_modules/.pnpm/@rafaelsilvalor+tyto-house-style@0.4.5/node_modules/@rafaelsilvalor/tyto-house-style/dist/chunk-EIGOHDOF.js
+var PLACEHOLDER_LOGO = {
+  box: { w: 186.09, h: 376.79 },
+  d: (
+    // The rectangle, its corners rounded by quarter arcs.
+    "M24,0H162.09A24,24,0,0,1,186.09,24V352.79A24,24,0,0,1,162.09,376.79H24A24,24,0,0,1,0,352.79V24A24,24,0,0,1,24,0ZM51.05,120A42,42,0,1,0,135.05,120A42,42,0,1,0,51.05,120Z"
+  ),
+  fillRule: "evenodd"
+};
+var PLACEHOLDER_SIGNATURE = "@assinatura";
+function oneInk(ink) {
+  return { primary: ink, secondary: ink };
+}
+function drawBrandMark(shape, height, inks, name) {
+  if (!isTonedMark(shape)) return mark(shape, height, inks.primary, name);
+  const scale = height / shape.box.h;
+  return block(
+    shape.box.w * scale,
+    height,
+    group({
+      name,
+      children: shape.layers.map(
+        (layer) => vector({
+          name: `${name}-${layer.tone}`,
+          geometry: { kind: "path", d: layer.d, fillRule: layer.fillRule },
+          size: shape.box,
+          fill: solid(inks[layer.tone]),
+          transform: { scaleX: scale, scaleY: scale }
+        })
+      )
+    })
+  );
+}
+function drawLogo(kit, height, inks) {
+  return drawBrandMark(kit.logo ?? PLACEHOLDER_LOGO, height, inks, "logo");
+}
 function accentOf(kit, fallback) {
   return kit.colors?.accent ?? fallback;
+}
+function signatureOf(kit) {
+  return kit.signature ?? PLACEHOLDER_SIGNATURE;
 }
 
 // node_modules/.pnpm/@rafaelsilvalor+tyto-house-style@0.4.5/node_modules/@rafaelsilvalor/tyto-house-style/dist/index.js
@@ -21924,32 +22059,74 @@ var TABLE_VALUE_DEFAULTS = {
 };
 
 // src/template.ts
+var DEFAULT_SIGN_OFF_TITLE = "Gostou do conte\xFAdo?";
+var BUTTON_WORD = "Confira";
 var COLOR_DEFAULTS = {
+  /** The cover's and the sign-off's colour, where no picture covers it. */
   deep: "#204e72",
+  /** The cover's title, its button and the sign-off's title, when no brand kit gives one. */
   accent: "#1d9ad5",
+  /** The words and icons on the deep colour. */
   "on-deep": "#ffffff",
+  /** The paper of the explanation slides. */
   paper: "#ffffff",
+  /** The explanation's words, and the signature on paper. */
   "body-ink": "#4d4d4d",
+  /** `**x**`'s colour. */
   "highlight-ink": "#4d4d4d",
+  /** The four `{cor:…}` highlights. */
   "highlight-azul": "#2f628a",
   "highlight-vermelho": "#873131",
   "highlight-verde": "#39902e",
   "highlight-ocre": "#8a662d"
 };
 var NUMBER_DEFAULTS = {
-  "highlight-weight": 500
+  /** The weight every highlight is set at, snapped to the nearest face the manifest lists. */
+  "highlight-weight": 500,
+  /** The cover's title is set at the largest size between these that keeps it in its room. */
+  "title-floor": 56,
+  "title-ceiling": 94.23,
+  /** The explanation's paragraphs, the same way: the reference's 40 px unless they do not fit. */
+  "body-floor": 30,
+  "body-ceiling": 40,
+  /** The cover's lead: the reference's 47.11 px, smaller to stay on one line, down to the floor. */
+  "lead-floor": 32,
+  "lead-ceiling": 47.11,
+  /** An explanation's `{titulo}`, set as the cover's title: the largest size whose words fit. */
+  "slide-title-floor": 40,
+  "slide-title-ceiling": 56
 };
+function sizesBetween(context, name) {
+  const value = (key) => numberValue(context, key, NUMBER_DEFAULTS[key]);
+  const floor = value(`${name}-floor`);
+  const ceiling = Math.max(floor, value(`${name}-ceiling`));
+  const sizes = [];
+  for (let size = ceiling; size > floor; size -= 1) sizes.push(size);
+  sizes.push(floor);
+  return sizes;
+}
 var FACE2 = { family: "CircularXX", source: "system" };
 var LIGHT = 300;
+var REGULAR = 400;
+var MEDIUM = 500;
 var BOLD3 = 700;
 var BLACK = 900;
-var DEFAULT_SIGN_OFF_TITLE = "Gostou do conte\xFAdo?";
+var WEIGHTS = [LIGHT, REGULAR, MEDIUM, BOLD3, BLACK];
+var ASCENT = 0.75;
+var DESCENT = 0.25;
+var CAP_HEIGHT = 0.709;
+function capOffset(size, lineHeight) {
+  return size * ((lineHeight - (ASCENT + DESCENT)) / 2 + (ASCENT - CAP_HEIGHT));
+}
+var SLIDE_WIDTH = 1080;
+var ESTIMATED_ADVANCE = 0.5;
 var HIGHLIGHTS = {
   azul: "highlight-azul",
   vermelho: "highlight-vermelho",
   verde: "highlight-verde",
   ocre: "highlight-ocre"
 };
+var LOGO = { y: 76, height: 59 };
 function roleOf(context) {
   if (context.adjustments["capa"] === true) return "capa";
   if (context.adjustments["fecho"] === true) return "fecho";
@@ -21959,77 +22136,476 @@ var build = (context) => {
   const ink = (name) => colorValue(context, name, COLOR_DEFAULTS[name]);
   const accent = accentOf(context.brand, ink("accent"));
   const role = roleOf(context);
-  const written = slideLines(context);
-  const deep = role !== "explicacao";
-  const children = role === "capa" ? [
-    textAt(
-      "chamada",
-      plain(written[0] ?? []).toUpperCase(),
-      120,
-      192,
-      47,
-      BLACK,
-      ink("on-deep")
-    ),
-    textAt(
-      "titulo",
-      written.slice(1).map((line) => plain(line).toUpperCase()).join("\n"),
-      120,
-      288,
-      94,
-      BLACK,
-      accent
-    )
-  ] : role === "fecho" ? [
-    textAt(
-      "fecho-titulo",
-      written.length > 0 ? plain(written[0] ?? []) : DEFAULT_SIGN_OFF_TITLE,
-      116,
-      343,
-      84.6,
-      BOLD3,
-      accent
-    )
-  ] : written.map(
-    (line, index) => paragraph(context, `paragrafo-${index + 1}`, line, 158, 461 + index * 200, ink)
-  );
+  const last = context.artwork.index === context.artwork.count - 1;
+  const base2 = { format: context.format, size: context.size, idPrefix: context.idPrefix };
+  if (role === "capa") {
+    const written = context.slots["fundo"]?.value;
+    const picture = written?.kind === "image" ? written.asset : imageValue(context, "cover-background");
+    return frame({
+      ...base2,
+      background: solid(ink("deep")),
+      children: [
+        ...picture === void 0 ? [] : [image({ name: "fundo", asset: picture, size: context.size, fit: "cover" })],
+        at(COVER.x, LOGO.y, drawLogo(context.brand, LOGO.height, oneInk(ink("on-deep")))),
+        ...cover(context, ink("on-deep"), accent),
+        ...last ? [] : coverButton({ fill: accent, ink: ink("deep") })
+      ]
+    });
+  }
+  if (role === "fecho") {
+    return frame({
+      ...base2,
+      background: solid(ink("deep")),
+      children: [
+        at(SIDE_X, LOGO.y, drawLogo(context.brand, LOGO.height, oneInk(ink("on-deep")))),
+        signOffTitle(context, accent),
+        ...iconSignOff({ ink: ink("on-deep"), inside: ink("deep") }),
+        footSignature(context.brand, SIGN_OFF_SIGNATURE_TOP, ink("on-deep"))
+      ]
+    });
+  }
   return frame({
-    format: context.format,
-    size: context.size,
-    idPrefix: context.idPrefix,
-    background: solid(deep ? ink("deep") : ink("paper")),
-    children
+    ...base2,
+    background: solid(ink("paper")),
+    children: [
+      at(SIDE_X, LOGO.y, drawLogo(context.brand, LOGO.height, oneInk(ink("deep")))),
+      ...explanation(context, ink, accent),
+      footSignature(context.brand, BODY_SIGNATURE_TOP, ink("body-ink")),
+      ...last ? [] : [arrow(BODY_ARROW, ink("deep"))]
+    ]
   });
 };
-function paragraph(context, name, line, x, y, ink) {
-  const weight = numberValue(context, "highlight-weight", NUMBER_DEFAULTS["highlight-weight"]);
-  const style2 = { font: FACE2, size: 40, weight: LIGHT, color: ink("body-ink") };
-  const runs = runsOf(line, style2, {
-    bold: weight,
-    mark: (key, value) => key === "cor" && value in HIGHLIGHTS ? { color: ink(HIGHLIGHTS[value]), weight } : void 0
+var COVER = {
+  x: 114,
+  leadCapTop: 194,
+  leadSize: 47.11,
+  /** A lead too long for one line wraps at this pitch, in em. */
+  leadLineHeight: 1.2,
+  /** From the lead's capitals to the title's, on one line of lead. */
+  leadToTitle: 96,
+  /** The reference's 94.23 px title lines are 113.62 px apart: the pitch keeps that ratio. */
+  titleLineHeight: 113.62 / 94.23,
+  /** From the cover's left words to the slide's right edge, less the same margin. */
+  width: SLIDE_WIDTH - 2 * 114,
+  /** 80 px over the button. */
+  bottom: 1140 - 80,
+  /** A capital's advance, in em, for when nothing can be measured. */
+  estimatedAdvance: 0.62
+};
+function cover(context, onDeep, accent) {
+  const [lead = "", ...rest] = slideRichLines(context).map((line) => capitals(plain(line).trim()));
+  const draftAt = (size) => textAt("chamada", lead, {
+    x: COVER.x,
+    capTop: COVER.leadCapTop,
+    size,
+    weight: BLACK,
+    color: onDeep,
+    lineHeight: COVER.leadLineHeight,
+    width: COVER.width
   });
-  return draw(name, runs, x, y, 40, 770);
+  const linesAt = (size) => measuredLines(context, draftAt(size), [lead], size, COVER.width, COVER.estimatedAdvance);
+  const sizes = sizesBetween(context, "lead");
+  const leadSize = sizes.find((size) => linesAt(size) === 1) ?? sizes[sizes.length - 1];
+  const leadLines = linesAt(leadSize);
+  const titleTop = COVER.leadCapTop + COVER.leadToTitle + (leadLines - 1) * leadSize * COVER.leadLineHeight;
+  return [draftAt(leadSize), coverTitle(context, rest, titleTop, accent)];
 }
-function textAt(name, words, x, y, size, weight, color2) {
-  const style2 = { font: FACE2, size, weight, color: color2 };
+function capitals(words) {
+  return words.toLocaleUpperCase("pt-BR");
+}
+function coverTitle(context, written, capTop, color2) {
+  const sizes = sizesBetween(context, "title");
+  const floor = sizes[sizes.length - 1];
+  const draft = (size) => textAt("titulo", written.join("\n"), {
+    x: COVER.x,
+    capTop,
+    size,
+    weight: BLACK,
+    color: color2,
+    lineHeight: COVER.titleLineHeight,
+    width: COVER.width
+  });
+  const layout = (size) => {
+    const node2 = draft(size);
+    const measured = context.measure(node2);
+    if (measured !== void 0) return measured;
+    const perLine = Math.max(1, Math.floor(COVER.width / (size * COVER.estimatedAdvance)));
+    const count = written.reduce(
+      (sum, line) => sum + Math.max(1, Math.ceil([...line].length / perLine)),
+      0
+    );
+    const longest = Math.max(0, ...written.flatMap((line) => line.split(" ").map((w) => w.length)));
+    return { lines: Math.max(1, count), width: longest * size * COVER.estimatedAdvance };
+  };
+  const foot = (size, count) => capTop + (count - 1) * size * COVER.titleLineHeight + size * CAP_HEIGHT;
+  const fits = (size) => {
+    const laid = layout(size);
+    return laid.width <= COVER.width + 0.5 && foot(size, laid.lines) <= COVER.bottom;
+  };
+  const fitted = sizes.find(fits);
+  if (fitted !== void 0) return draft(fitted);
+  reportOverflow(context.report, foot(floor, layout(floor).lines), COVER.bottom);
+  return draft(floor);
+}
+var BUTTON = {
+  x: 679,
+  y: 1140,
+  w: 282,
+  h: 73,
+  wordX: 714,
+  wordCapTop: 1162,
+  wordSize: 38.91,
+  arrow: { x: 861, y: 1161, w: 64, h: 34, shaft: 11 }
+};
+function coverButton(inks) {
+  return [
+    rect({
+      name: "botao",
+      size: { w: BUTTON.w, h: BUTTON.h },
+      radius: BUTTON.h / 2,
+      fill: solid(inks.fill),
+      transform: { x: BUTTON.x, y: BUTTON.y }
+    }),
+    textAt("botao-texto", BUTTON_WORD, {
+      x: BUTTON.wordX,
+      capTop: BUTTON.wordCapTop,
+      size: BUTTON.wordSize,
+      weight: BOLD3,
+      color: inks.ink
+    }),
+    arrow(BUTTON.arrow, inks.ink)
+  ];
+}
+var BODY2 = {
+  x: 158,
+  width: 770,
+  lineHeight: 1.5,
+  /** From a paragraph's last line's capitals to the next one's first, in em: 92 px at 40. */
+  paragraphPitch: 2.3,
+  /** Over and under a picture. */
+  pictureGap: 48,
+  /**
+   * The block is centred on this line: the reference's paragraphs stand 24 px over the middle
+   * between the logo's foot and the footer, and the slide keeps that.
+   */
+  centre: 671,
+  /** It never comes nearer than this to the logo's foot or the footer's top. */
+  margin: 70,
+  /** A `{titulo}`'s lines, at the cover title's pitch. */
+  titleLineHeight: 113.62 / 94.23,
+  /** From a `{titulo}`'s baseline to the first block under it, in em of the title. */
+  titleGap: 1
+};
+var SIDE_X = 80;
+var FOOTER_TOP = 1255;
+var ROOM = { top: LOGO.y + LOGO.height + BODY2.margin, bottom: FOOTER_TOP - BODY2.margin };
+var BODY_ARROW = { x: 857, y: 1256, w: 145, h: 34, shaft: 9 };
+function explanation(context, ink, accent) {
+  const { title, parts } = titled(context, slideParts(context));
+  const heading = title === void 0 ? void 0 : slideTitle(context, title, accent);
+  const piecesAt = (size2) => {
+    let count = 0;
+    const head = heading === void 0 ? [] : [heading];
+    return head.concat(
+      parts.flatMap((part) => {
+        if (part.kind === "picture") return [picturePiece(part.asset)];
+        return part.lines.map((line) => {
+          count += 1;
+          const name = `paragrafo-${count}`;
+          const draftAt = (capTop) => paragraph(context, name, line, capTop, size2, ink);
+          const lineCount = measuredLines(context, draftAt(0), [line], size2, BODY2.width);
+          return {
+            kind: "paragraph",
+            height: (lineCount - 1) * size2 * BODY2.lineHeight + size2 * CAP_HEIGHT,
+            place: (top2) => [draftAt(top2)]
+          };
+        });
+      })
+    );
+  };
+  const gapBetween = (above, below, size2) => above.kind === "title" ? heading?.gap ?? 0 : above.kind === "picture" || below.kind === "picture" ? BODY2.pictureGap : size2 * (BODY2.paragraphPitch - CAP_HEIGHT);
+  const total = (pieces2, size2) => pieces2.reduce(
+    (sum, piece, index) => sum + piece.height + (index === 0 ? 0 : gapBetween(pieces2[index - 1], piece, size2)),
+    0
+  );
+  const sizes = sizesBetween(context, "body");
+  const size = sizes.find((tried) => total(piecesAt(tried), tried) <= ROOM.bottom - ROOM.top) ?? sizes[sizes.length - 1];
+  const pieces = piecesAt(size);
+  const height = total(pieces, size);
+  if (height > ROOM.bottom - ROOM.top)
+    reportOverflow(context.report, ROOM.top + height, ROOM.bottom);
+  const top = Math.max(ROOM.top, Math.min(BODY2.centre - height / 2, ROOM.bottom - height));
+  let y = top;
+  return pieces.flatMap((piece, index) => {
+    if (index > 0) y += gapBetween(pieces[index - 1], piece, size);
+    const nodes = piece.place(y);
+    y += piece.height;
+    return nodes;
+  });
+}
+function titled(context, parts) {
+  const first = parts[0];
+  if (context.adjustments["titulo"] !== true || first?.kind !== "lines") return { parts };
+  const [line, ...rest] = first.lines;
+  const title = line === void 0 ? "" : plain(line).trim();
+  const after = rest.length === 0 ? parts.slice(1) : [{ kind: "lines", lines: rest }, ...parts.slice(1)];
+  return { title, parts: after };
+}
+function slideTitle(context, written, color2) {
+  const words = capitals(written);
+  const draftAt = (size2, capTop) => textAt("titulo-lamina", words, {
+    x: BODY2.x,
+    capTop,
+    size: size2,
+    weight: BLACK,
+    color: color2,
+    lineHeight: BODY2.titleLineHeight,
+    width: BODY2.width
+  });
+  const widest = (size2) => {
+    const measured = context.measure(draftAt(size2, 0));
+    if (measured !== void 0) return measured.width;
+    const longest = Math.max(0, ...words.split(" ").map((word) => [...word].length));
+    return longest * size2 * COVER.estimatedAdvance;
+  };
+  const sizes = sizesBetween(context, "slide-title");
+  const size = sizes.find((each) => widest(each) <= BODY2.width + 0.5) ?? sizes[sizes.length - 1];
+  const count = measuredLines(
+    context,
+    draftAt(size, 0),
+    [words],
+    size,
+    BODY2.width,
+    COVER.estimatedAdvance
+  );
+  return {
+    kind: "title",
+    height: (count - 1) * size * BODY2.titleLineHeight + size * CAP_HEIGHT,
+    place: (top) => [draftAt(size, top)],
+    gap: size * BODY2.titleGap
+  };
+}
+function paragraph(context, name, line, capTop, size, ink) {
+  const weight = highlightWeight(context);
+  const style2 = { font: FACE2, size, weight: LIGHT, color: ink("body-ink") };
+  const runs = runsOf(highlighted(line), style2, {
+    mark: (key, value) => {
+      if (key === HIGHLIGHT_KEY) return { color: ink("highlight-ink"), weight };
+      if (key === "cor" && value in HIGHLIGHTS) {
+        return { color: ink(HIGHLIGHTS[value]), weight };
+      }
+      return void 0;
+    }
+  });
+  return textRuns(name, runs, {
+    x: BODY2.x,
+    capTop,
+    size,
+    lineHeight: BODY2.lineHeight,
+    width: BODY2.width
+  });
+}
+var HIGHLIGHT_KEY = "destaque";
+function highlighted(written) {
+  return written.map((inline) => {
+    if (inline.kind === "bold") {
+      return {
+        kind: "mark",
+        key: HIGHLIGHT_KEY,
+        value: "",
+        children: highlighted(inline.children),
+        range: inline.range
+      };
+    }
+    if (inline.kind === "italic" || inline.kind === "mark") {
+      return { ...inline, children: highlighted(inline.children) };
+    }
+    return inline;
+  });
+}
+function highlightWeight(context) {
+  const asked = numberValue(context, "highlight-weight", NUMBER_DEFAULTS["highlight-weight"]);
+  return WEIGHTS.reduce(
+    (best, each) => Math.abs(each - asked) < Math.abs(best - asked) ? each : best
+  );
+}
+var PICTURE_SHAPES = { widest: 3, tallest: 1 };
+function picturePiece(asset) {
+  const natural = imageHeight(asset, BODY2.width, BODY2.width / 2);
+  const height = Math.round(
+    Math.min(
+      BODY2.width / PICTURE_SHAPES.tallest,
+      Math.max(BODY2.width / PICTURE_SHAPES.widest, natural)
+    )
+  );
+  return {
+    kind: "picture",
+    height,
+    place: (y) => [
+      image({
+        name: "imagem",
+        asset,
+        size: { w: BODY2.width, h: height },
+        fit: "contain",
+        transform: { x: BODY2.x, y }
+      })
+    ]
+  };
+}
+function slideParts(context) {
+  const slide = context.slots["lamina"];
+  const parts = [];
+  const addLines = (written) => {
+    const kept = lines(written).filter((line) => plain(line).trim() !== "");
+    if (kept.length > 0) parts.push({ kind: "lines", lines: kept });
+  };
+  const addPicture = (value) => {
+    if (value?.kind === "image") parts.push({ kind: "picture", asset: value.asset });
+  };
+  if (slide?.blocks === void 0) {
+    if (slide?.value.kind === "rich-text") addLines(slide.value.text);
+    addPicture(context.slots["imagem"]?.value);
+    return parts;
+  }
+  for (const block2 of slide.blocks) {
+    if (block2.kind === "text") addLines(block2.text);
+    else addPicture(block2.slot.value);
+  }
+  return parts;
+}
+var SIGN_OFF_TITLE = { capTop: 343.5, size: 84.6 };
+function signOffTitle(context, color2) {
+  const [written] = slideRichLines(context);
+  const words = written === void 0 ? DEFAULT_SIGN_OFF_TITLE : plain(written).trim();
+  return textAt("fecho-titulo", words, {
+    x: 0,
+    capTop: SIGN_OFF_TITLE.capTop,
+    size: SIGN_OFF_TITLE.size,
+    weight: BOLD3,
+    color: color2,
+    width: SLIDE_WIDTH,
+    align: "center"
+  });
+}
+var ICON_ROWS = [
+  {
+    name: "curtir",
+    icon: { x: 299, y: 553, w: 69, h: 60 },
+    d: "M34.5 56.5L7 30C0 23 1.5 8 13 4.5C22 2 30 6 34.5 13C39 6 47 2 56 4.5C67.5 8 69 23 62 30Z",
+    words: "Deixe um like",
+    weight: REGULAR,
+    capTop: 573.7
+  },
+  {
+    name: "marcar",
+    icon: { x: 302, y: 667, w: 66, h: 61 },
+    d: "M45 49.5C41.5 51 37.5 51.5 33 51.5C16 51.5 2.5 41 2.5 27C2.5 13 16 2.5 33 2.5C50 2.5 63.5 13 63.5 27C63.5 35.5 58.5 42.5 51 46.5L55.5 58.5Z",
+    words: "Marque algu\xE9m que\npossa gostar do conte\xFAdo.",
+    weight: REGULAR,
+    capTop: 663.7
+  },
+  {
+    name: "salvar",
+    icon: { x: 313, y: 798, w: 47, h: 63 },
+    d: "M2.5 2.5H44.5V60.5L23.5 43.5L2.5 60.5Z",
+    words: "Salve para fixar\no conte\xFAdo",
+    weight: BOLD3,
+    capTop: 797.7
+  },
+  {
+    name: "compartilhar",
+    icon: { x: 308, y: 927, w: 54, h: 54 },
+    d: "M51.5 2.5L2.5 21L24 30L33 51.5Z M24 30L51.5 2.5",
+    words: "Compartilhe com\nos amigos.",
+    weight: REGULAR,
+    capTop: 919.7
+  }
+];
+var ROW_TEXT = { x: 443, size: 29.98, lineHeight: 38.68 / 29.98, letterSpacing: 0.6 };
+var ICON_STROKE = 4.5;
+function iconSignOff(inks) {
+  return ICON_ROWS.flatMap((row) => [
+    vector({
+      name: row.name,
+      geometry: { kind: "path", d: row.d, fillRule: "nonzero" },
+      size: { w: row.icon.w, h: row.icon.h },
+      fill: solid(inks.inside),
+      stroke: { paint: solid(inks.ink), width: ICON_STROKE, align: "center" },
+      transform: { x: row.icon.x, y: row.icon.y }
+    }),
+    textAt(`${row.name}-texto`, row.words, {
+      x: ROW_TEXT.x,
+      capTop: row.capTop,
+      size: ROW_TEXT.size,
+      weight: row.weight,
+      color: inks.ink,
+      lineHeight: ROW_TEXT.lineHeight,
+      letterSpacing: ROW_TEXT.letterSpacing
+    })
+  ]);
+}
+var BODY_SIGNATURE_TOP = 1262.5;
+var SIGN_OFF_SIGNATURE_TOP = 1229.5;
+var SIGNATURE2 = { size: 25.66, letterSpacing: 25.66 * 0.2 };
+function footSignature(brand, capTop, color2) {
+  return textAt("assinatura", signatureOf(brand), {
+    x: 0,
+    capTop,
+    size: SIGNATURE2.size,
+    weight: LIGHT,
+    color: color2,
+    width: SLIDE_WIDTH,
+    align: "center",
+    letterSpacing: SIGNATURE2.letterSpacing
+  });
+}
+function arrow(box, color2) {
+  const head = Math.round(box.h * 0.64);
+  const top = (box.h - box.shaft) / 2;
+  const neck = box.w - head;
+  const d = `M0 ${top}H${neck}V0L${box.w} ${box.h / 2}L${neck} ${box.h}V${top + box.shaft}H0Z`;
+  return vector({
+    name: "seta",
+    geometry: { kind: "path", d, fillRule: "nonzero" },
+    size: { w: box.w, h: box.h },
+    fill: solid(color2),
+    transform: { x: box.x, y: box.y }
+  });
+}
+function textAt(name, words, placed) {
+  const style2 = { font: FACE2, size: placed.size, weight: placed.weight, color: placed.color };
   const [first = "", ...others] = words.split("\n");
-  const runs = [run(first, style2), ...others.flatMap((line) => [lineBreak(), run(line, style2)])];
-  return draw(name, runs, x, y, size, 1080 - 2 * x);
+  return textRuns(
+    name,
+    [run(first, style2), ...others.flatMap((line) => [lineBreak(), run(line, style2)])],
+    placed
+  );
 }
-function draw(name, runs, x, y, size, width) {
+function textRuns(name, runs, placed) {
+  const lineHeight = placed.lineHeight ?? 1;
   const [head, ...tail] = runs;
-  const empty = run("", { font: FACE2, size, weight: LIGHT, color: "#000000" });
+  const empty = run("", { font: FACE2, size: placed.size, weight: LIGHT, color: "#000000" });
   return text({
     name,
     runs: [head ?? empty, ...tail],
-    box: { w: width },
-    align: "left",
-    lineHeight: 1.5,
-    letterSpacing: 0,
-    transform: { x, y }
+    ...placed.width === void 0 ? {} : { box: { w: placed.width } },
+    align: placed.align ?? "left",
+    lineHeight,
+    letterSpacing: placed.letterSpacing ?? 0,
+    transform: { x: placed.x, y: placed.capTop - capOffset(placed.size, lineHeight) }
   });
 }
-function slideLines(context) {
+function measuredLines(context, node2, written, size, width, advance = ESTIMATED_ADVANCE) {
+  const measured = node2.kind === "text" ? context.measure(node2) : void 0;
+  if (measured !== void 0) return Math.max(1, measured.lines);
+  const perLine = Math.max(1, Math.floor(width / (size * advance)));
+  const count = written.reduce((sum, line) => {
+    const characters = [...typeof line === "string" ? line : plain(line)].length;
+    return sum + Math.max(1, Math.ceil(characters / perLine));
+  }, 0);
+  return Math.max(1, count);
+}
+function slideRichLines(context) {
   const value = context.slots["lamina"]?.value;
   if (value?.kind !== "rich-text") return [];
   return lines(value.text).filter((line) => plain(line).trim() !== "");

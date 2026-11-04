@@ -75,8 +75,10 @@ formats: [grid]
   paragraphs as the cover's title is (Black, capitals, the accent), at the largest size between
   `slide-title-floor` and `slide-title-ceiling` at which no word runs past the paragraphs.
 - **Pictures**: `::imagem ./figura.png` after the slide's `::lamina` shows the file where it is
-  written among the lines, at the paragraphs' width and as tall as its shape makes it (Tyto
-  ADR 0158, ADR 0160), from a 3:1 band to a square; the indented lines under it go on.
+  written among the lines, in questao-estrategica's frame (a border with a bar down the left,
+  rounded inside corners and a shadow), its border in `deep`. The frame is as tall as the
+  picture's shape makes it (Tyto ADR 0158, ADR 0160), from a 3:1 band to a square; the
+  indented lines under it go on.
 - **The sign-off**, `{fecho}`: empty, or one line that replaces its title.
 
 ## What it may reach

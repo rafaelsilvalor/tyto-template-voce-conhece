@@ -22308,7 +22308,7 @@ function explanation(context, ink, accent) {
     const head = heading === void 0 ? [] : [heading];
     return head.concat(
       parts.flatMap((part) => {
-        if (part.kind === "picture") return [picturePiece(part.asset)];
+        if (part.kind === "picture") return [picturePiece(part.asset, ink)];
         return part.lines.map((line) => {
           count += 1;
           const name = `paragrafo-${count}`;
@@ -22430,26 +22430,65 @@ function highlightWeight(context) {
   );
 }
 var PICTURE_SHAPES = { widest: 3, tallest: 1 };
-function picturePiece(asset) {
-  const natural = imageHeight(asset, BODY2.width, BODY2.width / 2);
-  const height = Math.round(
-    Math.min(
-      BODY2.width / PICTURE_SHAPES.tallest,
-      Math.max(BODY2.width / PICTURE_SHAPES.widest, natural)
-    )
+var FRAME = {
+  x: BODY2.x - 8,
+  w: BODY2.width + 25,
+  /** The border on the top, the right and the foot. */
+  border: 4,
+  /** The bar down the left side, border included. */
+  side: 29,
+  /** The radius of the white area's two left corners, where it meets the bar. */
+  radius: 32
+};
+var SHADOW = {
+  kind: "shadow",
+  x: 17,
+  y: 47,
+  blur: 12,
+  spread: -20,
+  color: { r: 0, g: 0, b: 0, a: 0.16 }
+};
+function framedPicture(asset, y, inks) {
+  const width = FRAME.w - FRAME.side - FRAME.border;
+  const natural = imageHeight(asset, width, width / 2);
+  const clamped = Math.min(
+    width / PICTURE_SHAPES.tallest,
+    Math.max(width / PICTURE_SHAPES.widest, natural)
   );
+  const size = { w: width, h: Math.round(clamped) };
+  const height = size.h + 2 * FRAME.border;
+  const inside = { x: FRAME.x + FRAME.side, y: y + FRAME.border };
+  const r = FRAME.radius;
+  const corner = (name, d, top) => vector({
+    name,
+    geometry: { kind: "path", d, fillRule: "nonzero" },
+    size: { w: r, h: r },
+    fill: solid(inks.border),
+    transform: { x: inside.x, y: top }
+  });
+  return {
+    nodes: [
+      rect({
+        name: "moldura",
+        size: { w: FRAME.w, h: height },
+        fill: solid(inks.border),
+        effects: [SHADOW],
+        transform: { x: FRAME.x, y }
+      }),
+      rect({ name: "fundo-imagem", size, fill: solid(inks.paper), transform: inside }),
+      image({ name: "imagem", asset, size, fit: "contain", transform: inside }),
+      corner("canto-superior", `M0 0H${r}A${r} ${r} 0 0 0 0 ${r}Z`, inside.y),
+      corner("canto-inferior", `M0 0A${r} ${r} 0 0 0 ${r} ${r}H0Z`, inside.y + size.h - r)
+    ],
+    height
+  };
+}
+function picturePiece(asset, ink) {
+  const inks = { border: ink("deep"), paper: ink("paper") };
   return {
     kind: "picture",
-    height,
-    place: (y) => [
-      image({
-        name: "imagem",
-        asset,
-        size: { w: BODY2.width, h: height },
-        fit: "contain",
-        transform: { x: BODY2.x, y }
-      })
-    ]
+    height: framedPicture(asset, 0, inks).height,
+    place: (y) => framedPicture(asset, y, inks).nodes
   };
 }
 function slideParts(context) {

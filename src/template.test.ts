@@ -300,8 +300,40 @@ describe('an explanation', () => {
     const picture = nodes.find((node) => node.name === 'imagem');
 
     expect(order).toEqual(['paragrafo-1', 'imagem', 'paragrafo-2']);
-    // 2:1 at the paragraphs' 770 px.
-    expect(picture?.size).toEqual({ w: 770, h: 385 });
+    // 2:1 inside the frame: 770 + 25 wide, less its 29 px bar and 4 px border.
+    expect(picture?.size).toEqual({ w: 762, h: 381 });
+  });
+
+  it("frames a picture as questao-estrategica's, its border in the deep colour", () => {
+    const framed = (values?: Record<string, unknown>) =>
+      drawn(
+        contextOf(words('x'), {
+          blocks: [
+            {
+              kind: 'slot',
+              slot: { name: 'imagem', value: { kind: 'image', asset: asset('p', 200, 100) } },
+            },
+          ],
+          ...(values === undefined ? {} : { values }),
+        }),
+      );
+    const border = (nodes: Node[]) => {
+      const frame = nodes.find((node) => node.name === 'moldura') as { fill?: Run['color'] };
+      return frame.fill === undefined ? '' : hex({ color: frame.fill });
+    };
+    const names = framed().map((node) => node.name);
+
+    expect(names).toEqual(
+      expect.arrayContaining([
+        'moldura',
+        'fundo-imagem',
+        'imagem',
+        'canto-superior',
+        'canto-inferior',
+      ]),
+    );
+    expect(border(framed())).toBe('#204e72');
+    expect(border(framed({ deep: '#123456' }))).toBe('#123456');
   });
 
   it('holds a picture between a 3:1 band and a square', () => {
@@ -317,8 +349,8 @@ describe('an explanation', () => {
         }),
       ).find((node) => node.name === 'imagem')?.size?.h;
 
-    expect(height(1000, 100)).toBe(257);
-    expect(height(100, 1000)).toBe(770);
+    expect(height(1000, 100)).toBe(254);
+    expect(height(100, 1000)).toBe(762);
   });
 });
 

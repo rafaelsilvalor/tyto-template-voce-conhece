@@ -406,7 +406,7 @@ function explanation(context: TemplateContext, ink: Ink, accent: string): NodeDr
     const head: Piece[] = heading === undefined ? [] : [heading];
     return head.concat(
       parts.flatMap((part): Piece[] => {
-        if (part.kind === 'picture') return [picturePiece(part.asset)];
+        if (part.kind === 'picture') return [picturePiece(part.asset, ink)];
         return part.lines.map((line) => {
           count += 1;
           const name = `paragrafo-${count}`;
@@ -583,27 +583,91 @@ export function highlightWeight(context: TemplateContext): number {
  */
 export const PICTURE_SHAPES = { widest: 3, tallest: 1 } as const;
 
-/** A picture at the paragraphs' width, as tall as its file's shape makes it. */
-function picturePiece(asset: AssetRef): Piece {
-  const natural = imageHeight(asset, BODY.width, BODY.width / 2);
-  const height = Math.round(
-    Math.min(
-      BODY.width / PICTURE_SHAPES.tallest,
-      Math.max(BODY.width / PICTURE_SHAPES.widest, natural),
-    ),
+/**
+ * questao-estrategica's frame (the maintainer, 2026-11-04: the same frame, its border in the
+ * cover's colour), scaled to these paragraphs: its left bar 8 px left of the words and 25 px
+ * wider than them, as questao's stands to its 810 px statement.
+ */
+export const FRAME = {
+  x: BODY.x - 8,
+  w: BODY.width + 25,
+  /** The border on the top, the right and the foot. */
+  border: 4,
+  /** The bar down the left side, border included. */
+  side: 29,
+  /** The radius of the white area's two left corners, where it meets the bar. */
+  radius: 32,
+} as const;
+
+/**
+ * The frame's shadow, questao-estrategica's: 16 % dark, cast down and right by a frame 20 px
+ * narrower on every side (`spread`), so it shows under the frame and not above it.
+ */
+const SHADOW = {
+  kind: 'shadow',
+  x: 17,
+  y: 47,
+  blur: 12,
+  spread: -20,
+  color: { r: 0, g: 0, b: 0, a: 0.16 },
+} as const;
+
+/**
+ * A picture in the frame: a border in `border` on the top, the right and the foot, a bar down
+ * the left, and the inside's two left corners rounded where they meet the bar. The inside is as
+ * tall as the picture's own shape makes it at the inside's width (Tyto ADR 0158), held between
+ * `PICTURE_SHAPES`, and the picture is fitted whole on `paper`. The rounding is drawn over the
+ * picture, as two corner pieces in the border's colour, so a photo that fills the inside is cut
+ * to the same corners.
+ */
+export function framedPicture(
+  asset: AssetRef,
+  y: number,
+  inks: { readonly border: string; readonly paper: string },
+): { readonly nodes: NodeDraft[]; readonly height: number } {
+  const width = FRAME.w - FRAME.side - FRAME.border;
+  const natural = imageHeight(asset, width, width / 2);
+  const clamped = Math.min(
+    width / PICTURE_SHAPES.tallest,
+    Math.max(width / PICTURE_SHAPES.widest, natural),
   );
+  const size = { w: width, h: Math.round(clamped) };
+  const height = size.h + 2 * FRAME.border;
+  const inside = { x: FRAME.x + FRAME.side, y: y + FRAME.border };
+  const r = FRAME.radius;
+  const corner = (name: string, d: string, top: number): NodeDraft =>
+    vector({
+      name,
+      geometry: { kind: 'path', d, fillRule: 'nonzero' },
+      size: { w: r, h: r },
+      fill: solid(inks.border),
+      transform: { x: inside.x, y: top },
+    });
+  return {
+    nodes: [
+      rect({
+        name: 'moldura',
+        size: { w: FRAME.w, h: height },
+        fill: solid(inks.border),
+        effects: [SHADOW],
+        transform: { x: FRAME.x, y },
+      }),
+      rect({ name: 'fundo-imagem', size, fill: solid(inks.paper), transform: inside }),
+      image({ name: 'imagem', asset, size, fit: 'contain', transform: inside }),
+      corner('canto-superior', `M0 0H${r}A${r} ${r} 0 0 0 0 ${r}Z`, inside.y),
+      corner('canto-inferior', `M0 0A${r} ${r} 0 0 0 ${r} ${r}H0Z`, inside.y + size.h - r),
+    ],
+    height,
+  };
+}
+
+/** A framed picture as a block of the explanation, from its frame's top. */
+function picturePiece(asset: AssetRef, ink: Ink): Piece {
+  const inks = { border: ink('deep'), paper: ink('paper') };
   return {
     kind: 'picture',
-    height,
-    place: (y) => [
-      image({
-        name: 'imagem',
-        asset,
-        size: { w: BODY.width, h: height },
-        fit: 'contain',
-        transform: { x: BODY.x, y },
-      }),
-    ],
+    height: framedPicture(asset, 0, inks).height,
+    place: (y) => framedPicture(asset, y, inks).nodes,
   };
 }
 

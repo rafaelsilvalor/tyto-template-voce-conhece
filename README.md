@@ -21,7 +21,7 @@ templates:
   voce-conhece:
     source:
       git: https://github.com/rafaelsilvalor/tyto-template-voce-conhece.git
-      ref: v0.1.0
+      ref: v0.2.0
 ```
 
 Or install the default branch, as it is:
@@ -78,7 +78,8 @@ formats: [grid]
   written among the lines, in questao-estrategica's frame (a border with a bar down the left,
   rounded inside corners and a shadow), its border in `deep`. The frame is as tall as the
   picture's shape makes it (Tyto ADR 0158, ADR 0160), from a 3:1 band to a square; the
-  indented lines under it go on.
+  indented lines under it go on. `::imagem {sem-quadro} ./foto.png` draws that picture without
+  the frame, at the paragraphs' place and width, between the same 3:1 and square.
 - **The sign-off**, `{fecho}`: empty, or one line that replaces its title.
 
 ## What it may reach

@@ -289,7 +289,11 @@ describe('an explanation', () => {
       { kind: 'text', text: words('Antes.'), range },
       {
         kind: 'slot',
-        slot: { name: 'imagem', value: { kind: 'image', asset: asset('a', 1540, 770) } },
+        slot: {
+          name: 'imagem',
+          adjustments: [],
+          value: { kind: 'image', asset: asset('a', 1540, 770) },
+        },
       },
       { kind: 'text', text: words('Depois.'), range },
     ];
@@ -311,7 +315,11 @@ describe('an explanation', () => {
           blocks: [
             {
               kind: 'slot',
-              slot: { name: 'imagem', value: { kind: 'image', asset: asset('p', 200, 100) } },
+              slot: {
+                name: 'imagem',
+                adjustments: [],
+                value: { kind: 'image', asset: asset('p', 200, 100) },
+              },
             },
           ],
           ...(values === undefined ? {} : { values }),
@@ -343,7 +351,11 @@ describe('an explanation', () => {
           { kind: 'text', text: words('Um parágrafo que deixa o topo fracionário.'), range },
           {
             kind: 'slot',
-            slot: { name: 'imagem', value: { kind: 'image', asset: asset('p', 200, 100) } },
+            slot: {
+              name: 'imagem',
+              adjustments: [],
+              value: { kind: 'image', asset: asset('p', 200, 100) },
+            },
           },
         ],
       }),
@@ -356,6 +368,31 @@ describe('an explanation', () => {
     for (const top of tops) expect(Number.isInteger(top)).toBe(true);
   });
 
+  it('draws a picture marked {sem-quadro} without the frame, at the paragraphs width', () => {
+    const picture = (adjustments: readonly unknown[]) =>
+      drawn(
+        contextOf(words('x'), {
+          blocks: [
+            {
+              kind: 'slot',
+              slot: {
+                name: 'imagem',
+                adjustments,
+                value: { kind: 'image', asset: asset('p', 1540, 770) },
+              },
+            },
+          ],
+        }),
+      );
+    const bare = picture([{ name: 'sem-quadro', range }]);
+    const framed = picture([]);
+
+    expect(bare.map((node) => node.name)).not.toContain('moldura');
+    expect(bare.find((node) => node.name === 'imagem')?.size).toEqual({ w: 770, h: 385 });
+    expect(bare.find((node) => node.name === 'imagem')?.transform?.x).toBe(158);
+    expect(framed.map((node) => node.name)).toContain('moldura');
+  });
+
   it('holds a picture between a 3:1 band and a square', () => {
     const height = (w: number, h: number) =>
       drawn(
@@ -363,7 +400,11 @@ describe('an explanation', () => {
           blocks: [
             {
               kind: 'slot',
-              slot: { name: 'imagem', value: { kind: 'image', asset: asset('p', w, h) } },
+              slot: {
+                name: 'imagem',
+                adjustments: [],
+                value: { kind: 'image', asset: asset('p', w, h) },
+              },
             },
           ],
         }),

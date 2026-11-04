@@ -1,5 +1,5 @@
 name: voce-conhece
-version: 0.1.0
+version: 0.2.0
 brand: marinho
 description: A "do you know the difference" carousel at 1080×1350 — a cover with the question, explanation slides with coloured highlights and pictures among the lines, and a sign-off.
 # Every face the slides set is declared, so the plugin's process can measure them (Tyto ADR 0048).
@@ -34,6 +34,8 @@ adjustments:
   fecho: { type: flag, applies: [lamina] }
   # On an explanation, its first line is a title, set as the cover's (Black, capitals, accent).
   titulo: { type: flag, applies: [lamina] }
+  # On an `::imagem` line, `::imagem {sem-quadro} ./foto.png`: that picture without the frame.
+  sem-quadro: { type: flag, applies: [imagem] }
 # What a configuration may change (Tyto ADR 0153). Each default is the reference art's, but for
 # the accent, which is the brand kit's when one is installed (Tyto ADR 0155): its default here is
 # a neutral stand-in. `tests/values.test.ts` pins every default to the code's fallback.

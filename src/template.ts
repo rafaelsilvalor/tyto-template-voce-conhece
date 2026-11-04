@@ -43,8 +43,8 @@ import type {
   AssetRef,
   BrandKit,
   Inline,
+  ResolvedSlot,
   RichText,
-  SlotValue,
   TemplateBuild,
   TemplateContext,
   TextRun,
@@ -406,7 +406,9 @@ function explanation(context: TemplateContext, ink: Ink, accent: string): NodeDr
     const head: Piece[] = heading === undefined ? [] : [heading];
     return head.concat(
       parts.flatMap((part): Piece[] => {
-        if (part.kind === 'picture') return [picturePiece(part.asset, ink)];
+        if (part.kind === 'picture') {
+          return [part.framed ? picturePiece(part.asset, ink) : barePiece(part.asset)];
+        }
         return part.lines.map((line) => {
           count += 1;
           const name = `paragrafo-${count}`;
@@ -673,10 +675,41 @@ function picturePiece(asset: AssetRef, ink: Ink): Piece {
   };
 }
 
+/**
+ * A picture without the frame, `::imagem {sem-quadro} ./foto.png` (the maintainer,
+ * 2026-11-04): at the paragraphs' place and width, as tall as its shape makes it between the
+ * same 3:1 and square, fitted whole, with nothing drawn around it.
+ */
+function barePiece(asset: AssetRef): Piece {
+  const natural = imageHeight(asset, BODY.width, BODY.width / 2);
+  const height = Math.round(
+    Math.min(
+      BODY.width / PICTURE_SHAPES.tallest,
+      Math.max(BODY.width / PICTURE_SHAPES.widest, natural),
+    ),
+  );
+  return {
+    kind: 'picture',
+    height,
+    place: (y) => [
+      image({
+        name: 'imagem',
+        asset,
+        size: { w: BODY.width, h: height },
+        fit: 'contain',
+        transform: { x: BODY.x, y: Math.round(y) },
+      }),
+    ],
+  };
+}
+
+/** The mark on an `::imagem` line that draws it without the frame. */
+const UNFRAMED = 'sem-quadro';
+
 /** An explanation as written: runs of lines and the pictures among them. */
 type Part =
   | { readonly kind: 'lines'; readonly lines: readonly RichText[] }
-  | { readonly kind: 'picture'; readonly asset: AssetRef };
+  | { readonly kind: 'picture'; readonly asset: AssetRef; readonly framed: boolean };
 
 /**
  * The slide's lines and pictures in the order the brief wrote them (Tyto ADR 0160): each
@@ -690,18 +723,20 @@ function slideParts(context: TemplateContext): Part[] {
     const kept = lines(written).filter((line) => plain(line).trim() !== '');
     if (kept.length > 0) parts.push({ kind: 'lines', lines: kept });
   };
-  const addPicture = (value: SlotValue | undefined): void => {
-    if (value?.kind === 'image') parts.push({ kind: 'picture', asset: value.asset });
+  const addPicture = (slot: ResolvedSlot | undefined): void => {
+    if (slot?.value.kind !== 'image') return;
+    const framed = !slot.adjustments.some((adjustment) => adjustment.name === UNFRAMED);
+    parts.push({ kind: 'picture', asset: slot.value.asset, framed });
   };
   // A host that hands no order has the slide's text and its first picture, after it.
   if (slide?.blocks === undefined) {
     if (slide?.value.kind === 'rich-text') addLines(slide.value.text);
-    addPicture(context.slots['imagem']?.value);
+    addPicture(context.slots['imagem']);
     return parts;
   }
   for (const block of slide.blocks) {
     if (block.kind === 'text') addLines(block.text);
-    else addPicture(block.slot.value);
+    else addPicture(block.slot);
   }
   return parts;
 }

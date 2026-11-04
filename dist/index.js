@@ -22308,7 +22308,9 @@ function explanation(context, ink, accent) {
     const head = heading === void 0 ? [] : [heading];
     return head.concat(
       parts.flatMap((part) => {
-        if (part.kind === "picture") return [picturePiece(part.asset, ink)];
+        if (part.kind === "picture") {
+          return [part.framed ? picturePiece(part.asset, ink) : barePiece(part.asset)];
+        }
         return part.lines.map((line) => {
           count += 1;
           const name = `paragrafo-${count}`;
@@ -22493,6 +22495,29 @@ function picturePiece(asset, ink) {
     place: (y) => framedPicture(asset, Math.round(y), inks).nodes
   };
 }
+function barePiece(asset) {
+  const natural = imageHeight(asset, BODY2.width, BODY2.width / 2);
+  const height = Math.round(
+    Math.min(
+      BODY2.width / PICTURE_SHAPES.tallest,
+      Math.max(BODY2.width / PICTURE_SHAPES.widest, natural)
+    )
+  );
+  return {
+    kind: "picture",
+    height,
+    place: (y) => [
+      image({
+        name: "imagem",
+        asset,
+        size: { w: BODY2.width, h: height },
+        fit: "contain",
+        transform: { x: BODY2.x, y: Math.round(y) }
+      })
+    ]
+  };
+}
+var UNFRAMED = "sem-quadro";
 function slideParts(context) {
   const slide = context.slots["lamina"];
   const parts = [];
@@ -22500,17 +22525,19 @@ function slideParts(context) {
     const kept = lines(written).filter((line) => plain(line).trim() !== "");
     if (kept.length > 0) parts.push({ kind: "lines", lines: kept });
   };
-  const addPicture = (value) => {
-    if (value?.kind === "image") parts.push({ kind: "picture", asset: value.asset });
+  const addPicture = (slot) => {
+    if (slot?.value.kind !== "image") return;
+    const framed = !slot.adjustments.some((adjustment) => adjustment.name === UNFRAMED);
+    parts.push({ kind: "picture", asset: slot.value.asset, framed });
   };
   if (slide?.blocks === void 0) {
     if (slide?.value.kind === "rich-text") addLines(slide.value.text);
-    addPicture(context.slots["imagem"]?.value);
+    addPicture(context.slots["imagem"]);
     return parts;
   }
   for (const block2 of slide.blocks) {
     if (block2.kind === "text") addLines(block2.text);
-    else addPicture(block2.slot.value);
+    else addPicture(block2.slot);
   }
   return parts;
 }

@@ -722,9 +722,9 @@ const SHADOW = {
  * A picture in the frame: a border in `border` on the top, the right and the foot, a bar down
  * the left, and the inside's two left corners rounded where they meet the bar. The inside is as
  * tall as the picture's own shape makes it at the inside's width (Tyto ADR 0158), held between
- * `PICTURE_SHAPES`, and the picture is fitted whole on `paper`. The rounding is drawn over the
- * picture, as two corner pieces in the border's colour, so a photo that fills the inside is cut
- * to the same corners.
+ * `PICTURE_SHAPES`, and the picture is fitted whole on `paper`. The border, the bar and the
+ * rounding are one outline drawn over the picture (`frameOutline`), so a photo that fills the
+ * inside is cut to the same corners. `moldura` under it only casts the shadow.
  */
 export function framedPicture(
   asset: AssetRef,
@@ -740,15 +740,6 @@ export function framedPicture(
   const size = { w: width, h: Math.round(clamped) };
   const height = size.h + 2 * FRAME.border;
   const inside = { x: FRAME.x + FRAME.side, y: y + FRAME.border };
-  const r = FRAME.radius;
-  const corner = (name: string, d: string, top: number): NodeDraft =>
-    vector({
-      name,
-      geometry: { kind: 'path', d, fillRule: 'nonzero' },
-      size: { w: r, h: r },
-      fill: solid(inks.border),
-      transform: { x: inside.x, y: top },
-    });
   return {
     nodes: [
       rect({
@@ -760,11 +751,36 @@ export function framedPicture(
       }),
       rect({ name: 'fundo-imagem', size, fill: solid(inks.paper), transform: inside }),
       image({ name: 'imagem', asset, size, fit: 'contain', transform: inside }),
-      corner('canto-superior', `M0 0H${r}A${r} ${r} 0 0 0 0 ${r}Z`, inside.y),
-      corner('canto-inferior', `M0 0A${r} ${r} 0 0 0 ${r} ${r}H0Z`, inside.y + size.h - r),
+      vector({
+        name: 'contorno',
+        geometry: { kind: 'path', d: frameOutline({ w: FRAME.w, h: height }), fillRule: 'evenodd' },
+        size: { w: FRAME.w, h: height },
+        fill: solid(inks.border),
+        transform: { x: FRAME.x, y },
+      }),
     ],
     height,
   };
+}
+
+/**
+ * The frame's ink as one shape, in the frame's own coordinates: the whole frame less the inside,
+ * whose two left corners are rounded by `FRAME.radius`. One shape, so the border, the bar and the
+ * corners share their edges: drawn as separate pieces over the paper, each piece was blended on
+ * its own where an edge fell inside a pixel, and at a fractional scale (a preview, a 125 %
+ * screen) a light seam showed along the corners (measured 2026-11-04).
+ */
+export function frameOutline(size: { readonly w: number; readonly h: number }): string {
+  const r = FRAME.radius;
+  const left = FRAME.side;
+  const right = size.w - FRAME.border;
+  const top = FRAME.border;
+  const foot = size.h - FRAME.border;
+  return [
+    `M0 0H${size.w}V${size.h}H0Z`,
+    `M${left + r} ${top}H${right}V${foot}H${left + r}`,
+    `A${r} ${r} 0 0 1 ${left} ${foot - r}V${top + r}A${r} ${r} 0 0 1 ${left + r} ${top}Z`,
+  ].join('');
 }
 
 /** A framed picture as a block of the explanation, from its frame's top. */

@@ -40,6 +40,7 @@ import { accentOf, drawLogo, oneInk, signatureOf } from '@tyto/house-style';
 import {
   ORPHAN_LIMITS,
   at,
+  highlightsFromValues,
   imageHeight,
   lines,
   plain,
@@ -51,7 +52,6 @@ import {
 import type {
   AssetRef,
   BrandKit,
-  Inline,
   ResolvedSlot,
   RichText,
   TemplateBuild,
@@ -59,7 +59,7 @@ import type {
   TextRun,
 } from '@tyto/core';
 import type { NodeDraft, TextDraft } from '@tyto/core/template';
-import type { OrphanLimits, Setting } from '@tyto/template-kit';
+import type { HighlightSpec, OrphanLimits, Setting } from '@tyto/template-kit';
 
 /* -------------------------------------------------------------------------- the words -- */
 
@@ -83,13 +83,13 @@ export const COLOR_DEFAULTS = {
   paper: '#ffffff',
   /** The explanation's words, and the signature on paper. */
   'body-ink': '#4d4d4d',
-  /** `**x**`'s colour. */
-  'highlight-ink': '#4d4d4d',
-  /** The four `{cor:…}` highlights. */
-  'highlight-azul': '#2f628a',
-  'highlight-vermelho': '#873131',
-  'highlight-verde': '#39902e',
-  'highlight-ocre': '#8a662d',
+  /** `**x**`'s colour, under the house's shared name (Tyto `docs/template-conventions.md`). */
+  'highlight-color': '#4d4d4d',
+  /** The four `{cor:…}` highlights, `mark-<family>-<name>` as the house names them. */
+  'mark-cor-azul': '#2f628a',
+  'mark-cor-vermelho': '#873131',
+  'mark-cor-verde': '#39902e',
+  'mark-cor-ocre': '#8a662d',
 } as const;
 
 type ColorName = keyof typeof COLOR_DEFAULTS;
@@ -178,13 +178,26 @@ const SLIDE_WIDTH = 1080;
 /** A glyph's advance, in em, for when nothing can be measured (a test, CI without the face). */
 const ESTIMATED_ADVANCE = 0.5;
 
-/** The `{cor:…}` names the brief may write, each a declared colour. */
-const HIGHLIGHTS = {
-  azul: 'highlight-azul',
-  vermelho: 'highlight-vermelho',
-  verde: 'highlight-verde',
-  ocre: 'highlight-ocre',
-} as const satisfies Record<string, ColorName>;
+/**
+ * The paragraphs' highlights as the kit's data (Tyto TYTO-554): `**x**` in `highlight-color`, and
+ * the four `{cor:…}` names the brief may write, each in its `mark-cor-<name>` colour and, like
+ * bold, at the highlight's weight. The colours here are the defaults; `highlightsFromValues`
+ * lays a configuration's over them.
+ */
+const HIGHLIGHT_SPEC = {
+  bold: { color: COLOR_DEFAULTS['highlight-color'], weight: NUMBER_DEFAULTS['highlight-weight'] },
+  marks: {
+    cor: {
+      like: 'bold',
+      values: {
+        azul: { color: COLOR_DEFAULTS['mark-cor-azul'] },
+        vermelho: { color: COLOR_DEFAULTS['mark-cor-vermelho'] },
+        verde: { color: COLOR_DEFAULTS['mark-cor-verde'] },
+        ocre: { color: COLOR_DEFAULTS['mark-cor-ocre'] },
+      },
+    },
+  },
+} as const satisfies HighlightSpec;
 
 /** The logo on every slide: the reference's owl, 59 px tall. */
 const LOGO = { y: 76, height: 59 } as const;
@@ -620,7 +633,8 @@ function slideTitle(
 
 /**
  * One paragraph: Light, with `**x**` in the highlight's colour and `{cor:…}` in its own, both
- * at the highlight's weight. Math is the brief's Unicode, set in the same face.
+ * at the highlight's weight. Math is the brief's Unicode: a glyph CircularXX lacks is drawn in
+ * Tyto's symbol chain (Tyto ADR 0168), which the manifest lists under `faces:`.
  */
 function paragraph(
   context: TemplateContext,
@@ -631,19 +645,13 @@ function paragraph(
   ink: Ink,
   setting: Omit<Setting, 'size'> = { letterSpacing: 0 },
 ): TextDraft {
-  const weight = highlightWeight(context);
   const style = { font: FACE, size, weight: LIGHT, color: ink('body-ink') };
-  const runs =
-    setting.runs ??
-    runsOf(highlighted(line), style, {
-      mark: (key, value) => {
-        if (key === HIGHLIGHT_KEY) return { color: ink('highlight-ink'), weight };
-        if (key === 'cor' && value in HIGHLIGHTS) {
-          return { color: ink(HIGHLIGHTS[value as keyof typeof HIGHLIGHTS]), weight };
-        }
-        return undefined;
-      },
-    });
+  // The kit reads `highlight-weight` as written; the template sets it at the nearest face it
+  // lists, so a configuration cannot ask for a weight nothing measures.
+  const marks = highlightsFromValues(context, HIGHLIGHT_SPEC).with({
+    bold: { weight: highlightWeight(context) },
+  });
+  const runs = setting.runs ?? runsOf(line, style, marks.options);
   return textRuns(name, runs, {
     x: BODY.x,
     capTop,
@@ -651,28 +659,6 @@ function paragraph(
     lineHeight: BODY.lineHeight,
     width: BODY.width,
     letterSpacing: setting.letterSpacing,
-  });
-}
-
-/** The mark `**x**` becomes, so it takes a colour as well as a weight. */
-const HIGHLIGHT_KEY = 'destaque';
-
-/** `**x**` as a mark of its own: core's `runsOf` gives bold a weight only. */
-function highlighted(written: RichText): RichText {
-  return written.map((inline): Inline => {
-    if (inline.kind === 'bold') {
-      return {
-        kind: 'mark',
-        key: HIGHLIGHT_KEY,
-        value: '',
-        children: highlighted(inline.children),
-        range: inline.range,
-      };
-    }
-    if (inline.kind === 'italic' || inline.kind === 'mark') {
-      return { ...inline, children: highlighted(inline.children) };
-    }
-    return inline;
   });
 }
 

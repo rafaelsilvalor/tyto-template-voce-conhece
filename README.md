@@ -7,7 +7,8 @@ explanation slides with coloured highlights and pictures among the lines, and a 
 **This repository holds the composition only.** The logo and the signature are not here: Tyto
 hands them to the template from the brand kit installed on the machine, under the manifest's
 brand `engenharia`, and without one it draws placeholders (Tyto ADR 0063, ADR 0065). The cover's
-picture and every image are the brief's. The example brief is invented copy.
+picture and every image are the brief's. The example briefs are invented copy:
+`diferenca.brief` and `formula.brief`, which writes Greek letters and operators.
 
 ## Install into Tyto
 
@@ -68,7 +69,8 @@ formats: [grid]
 - **An explanation**, an unmarked `::lamina`: each line one paragraph. `**x**` is a highlight
   at the highlight's weight and colour; `{cor:azul}x{/}`, `vermelho`, `verde` and `ocre` are
   the four coloured ones, at the same weight. Math is written as Unicode characters (`ΔT`,
-  `·`, `≤`). The paragraphs are set at the largest size between `body-floor` and
+  `·`, `≤`, `∇`, `ε₀`): a glyph CircularXX lacks is drawn in Tyto's bundled symbol faces,
+  Noto Sans Math and then Source Sans 3 (Tyto ADR 0168). The paragraphs are set at the largest size between `body-floor` and
   `body-ceiling` (the reference's 40 px) that fits between the logo and the footer, and the
   block is centred where the reference centres it.
 - **A title on an explanation**, `{titulo}`: the slide's first line is drawn over the
@@ -102,8 +104,9 @@ which Tyto has no face for: it is Black (900), the maintainer's call.
 `templates/voce-conhece/manifest.yaml` declares, as `values` (Tyto ADR 0153):
 
 - ten colours: `deep` (the cover's and the sign-off's), `accent`, `on-deep`, `paper`,
-  `body-ink`, `highlight-ink` (`**x**`) and the four `highlight-azul`, `-vermelho`, `-verde`
-  and `-ocre`. The accent is the brand kit's when it has one (Tyto ADR 0155); `#1d9ad5` is a
+  `body-ink`, `highlight-color` (`**x**`) and the four `mark-cor-azul`, `-vermelho`, `-verde`
+  and `-ocre`, the names every Tyto template shares (0.4.0 renamed them from `highlight-ink` and
+  `highlight-<colour>`: a configuration that set the old names sets the new ones). The accent is the brand kit's when it has one (Tyto ADR 0155); `#1d9ad5` is a
   neutral stand-in.
 - `highlight-weight` (500): set at the nearest of the faces the manifest lists.
 - four pairs of floor and ceiling, the font sizes each text is fitted between: `lead-*`,
@@ -137,11 +140,13 @@ The tests, all without Tyto:
   between its floor and ceiling and the overflow warning, the highlights' weight and colours
   (an unknown colour left plain), the `{titulo}`, and pictures among the lines in the order
   written, held between 3:1 and square.
-- `tests/examples.test.ts`: the example brief compiled as Tyto compiles it, through
+- `tests/examples.test.ts`: the example briefs compiled as Tyto compiles them, through
   `@tyto/template-kit/testing` (Tyto ADR 0152), against the HTML of each slide in
   `tests/__snapshots__/`.
-- `tests/faces.test.ts`: the manifest's `faces` are exactly the faces the example draws — in a
-  plugin's process a face left out measures as nothing.
+- `tests/faces.test.ts`: the manifest's CircularXX faces are exactly the ones the examples
+  draw, and the rest are Tyto's symbol chain at every weight they draw (Noto Sans Math, then
+  Source Sans 3 at 400 or 700, Tyto ADR 0168) — in a plugin's process a face left out measures
+  as nothing.
 - `tests/values.test.ts`: each declared default pinned to the one the code falls back to, and a
   colour set in a test found in the HTML.
 - `tests/plugin.test.ts`: the built `dist/index.js`, loaded through

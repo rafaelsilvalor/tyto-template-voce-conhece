@@ -1,0 +1,22 @@
+---
+template: voce-conhece
+formats: [grid]
+---
+// Formulas written as Unicode, in invented copy. A glyph CircularXX lacks is drawn in Tyto's
+// symbol chain, Noto Sans Math then Source Sans 3 (Tyto ADR 0168).
+
+::lamina {capa}
+  Você sabe a diferença entre
+  divergente e rotacional?
+
+::lamina {titulo}
+  O operador ∇
+  O **divergente** mede quanto um campo sai de um ponto: na lei de Gauss, ∇·E = ρ/ε₀.
+  Já o {cor:azul}rotacional{/} mede quanto ele gira: ∇×B = μ₀J + μ₀ε₀ ∂E/∂t.
+
+::lamina
+  Numa queda livre, **Δv = g·Δt** e a altura é h = ½·g·t², com g ≈ 9,81 m/s².
+  A energia de um fóton é E = h·ν, e ℏ = h/2π ≈ 1,05 × 10⁻³⁴ J·s.
+  Se {cor:vermelho}α → 0{/}, sen α ≈ α; para {cor:verde}x ≥ 0{/}, ∫ 2x dx = x² + C e {cor:ocre}∑ 1/2ⁿ = 1{/}.
+
+::lamina {fecho}

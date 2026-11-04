@@ -38,20 +38,60 @@ function facesIn(node: unknown, found = new Set<string>()): Set<string> {
   return found;
 }
 
-describe('the declared faces', () => {
-  it('are exactly the faces the example draws, on every slide', async () => {
+/** The examples a test compiles: every one the repository ships. */
+const EXAMPLES = ['diferenca', 'formula'] as const;
+
+/**
+ * Tyto's symbol chain for a run of this weight (Tyto ADR 0168): Noto Sans Math 400, then Source
+ * Sans 3 at the nearest of the weights it ships, 400 and 700, a tie going to the heavier.
+ *
+ * `@tyto/core` 0.37.0 does not export its `fallbackChain`, so the rule is written here, as the
+ * ADR states it; when core exports it, this function is that import.
+ */
+function symbolChain(weight: number): readonly string[] {
+  const textWeight = Math.abs(weight - 400) < Math.abs(weight - 700) ? 400 : 700;
+  return ['Noto Sans Math 400', `Source Sans 3 ${String(textWeight)}`];
+}
+
+/** The `family weight` of every face the manifest lists. */
+const declared = (manifest.value.faces ?? []).map(
+  (face) => `${face.family} ${String(face.weight)}`,
+);
+
+async function drawnFaces(): Promise<Set<string>> {
+  const drawn = new Set<string>();
+  for (const example of EXAMPLES) {
     const result = await compileTemplate({
-      brief: read('../templates/voce-conhece/examples/diferenca.brief'),
+      brief: read(`../templates/voce-conhece/examples/${example}.brief`),
       template,
       formats,
     });
     if (!result.ok) throw new Error(result.error.map((item) => item.message).join('\n'));
-    const drawn = facesIn(result.value.scene);
-    const declared = (manifest.value.faces ?? []).map(
-      (face) => `${face.family} ${String(face.weight)}`,
+    facesIn(result.value.scene, drawn);
+  }
+  return drawn;
+}
+
+describe('the declared faces', () => {
+  it('list exactly the faces the examples draw, on every slide', async () => {
+    const drawn = await drawnFaces();
+    const chainFamilies = new Set(['Noto Sans Math', 'Source Sans 3']);
+    const own = declared.filter(
+      (face) => ![...chainFamilies].some((f) => face.startsWith(`${f} `)),
     );
 
     expect(drawn.size).toBeGreaterThan(0);
-    expect([...drawn].sort()).toEqual([...declared].sort());
+    expect([...drawn].sort()).toEqual([...own].sort());
+  });
+
+  it("list Tyto's symbol chain at every weight the examples draw, and nothing more", async () => {
+    // Without these the plugin's own measure would take a formula at `.notdef` widths while the
+    // host draws it in the chain, and the boxes it sized would disagree with what is drawn.
+    const drawn = await drawnFaces();
+    const weights = [...drawn].map((face) => Number(face.split(' ').at(-1)));
+    const chain = new Set(weights.flatMap(symbolChain));
+    const listed = declared.filter((face) => !drawn.has(face));
+
+    expect(listed.sort()).toEqual([...chain].sort());
   });
 });

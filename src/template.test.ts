@@ -225,12 +225,24 @@ describe('an explanation', () => {
     const runs =
       named(
         contextOf([{ kind: 'bold', children: words('c'), range }], {
-          values: { 'highlight-ink': '#123456' },
+          values: { 'highlight-color': '#123456' },
         }),
         'paragrafo-1',
       )?.runs ?? [];
 
     expect(hex(runs[0])).toBe('#123456');
+  });
+
+  it('paints a `{cor:…}` its configured `mark-cor-<name>` colour, at the highlight weight', () => {
+    const runs =
+      named(
+        contextOf([{ kind: 'mark', key: 'cor', value: 'azul', children: words('b'), range }], {
+          values: { 'mark-cor-azul': '#abcdef', 'highlight-weight': 650 },
+        }),
+        'paragrafo-1',
+      )?.runs ?? [];
+
+    expect([hex(runs[0]), runs[0]?.weight]).toEqual(['#abcdef', 700]);
   });
 
   it('snaps a configured highlight weight to the nearest declared face', () => {

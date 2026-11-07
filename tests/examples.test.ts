@@ -37,6 +37,31 @@ describe('the example carousel', () => {
     }
   });
 
+  it('accepts `selo:` in the frontmatter and draws it on the last slide only (TYTO-480)', async () => {
+    const result = await compileTemplate({
+      brief: read('../templates/voce-conhece/examples/diferenca.brief').replace(
+        'formats: [grid]',
+        'formats: [grid]\nselo: ./selo.png',
+      ),
+      template,
+      formats,
+      assets: {
+        base: '(examples test)',
+        resolve: (reference) =>
+          Promise.resolve({ id: reference, source: 'file', path: reference, hash: 'selo' }),
+      },
+    });
+    if (!result.ok) throw new Error(result.error.map((item) => item.message).join('\n'));
+
+    const frames = result.value.frames;
+    expect(frames).toHaveLength(4);
+    for (const [index, slide] of frames.slice(0, 3).entries()) {
+      expect(slide.html).toBe(read(`./__snapshots__/diferenca-${index + 1}.html`));
+    }
+    expect(frames[3]?.html).toContain('data-name="seal"');
+    expect(frames[3]?.html).not.toBe(read('./__snapshots__/diferenca-4.html'));
+  });
+
   it('draws a formula in Unicode, Greek and operators among the words, the HTML of last time', async () => {
     const result = await compileTemplate({
       brief: read('../templates/voce-conhece/examples/formula.brief'),

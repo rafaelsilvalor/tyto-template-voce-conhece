@@ -16,6 +16,7 @@ interface Options {
   readonly values?: Record<string, unknown>;
   readonly blocks?: readonly unknown[];
   readonly fundo?: AssetRef;
+  readonly selo?: AssetRef;
   readonly index?: number;
   readonly count?: number;
   readonly measure?: (node: unknown) => { lines: number; width: number } | undefined;
@@ -39,6 +40,9 @@ function contextOf(text: RichText, options: Options = {}): TemplateContext {
       ...(options.fundo === undefined
         ? {}
         : { fundo: { name: 'fundo', value: { kind: 'image', asset: options.fundo } } }),
+      ...(options.selo === undefined
+        ? {}
+        : { selo: { name: 'selo', value: { kind: 'image', asset: options.selo } } }),
     },
     adjustments: options.adjustments ?? {},
     values: options.values ?? {},
@@ -529,5 +533,75 @@ describe('the sign-off', () => {
         'assinatura',
       ]),
     );
+  });
+});
+
+describe('the seal (TYTO-480)', () => {
+  const selo = asset('selo', 1080, 140);
+  const SEAL_TOP = 1350 - 140;
+  const sign = (context: TemplateContext): number => named(context, 'assinatura')!.transform!.y;
+  const lastOf = (adjustments: Record<string, boolean>, withSeal: boolean) =>
+    contextOf(words('Um parágrafo.'), {
+      adjustments,
+      index: 1,
+      count: 2,
+      ...(withSeal ? { selo } : {}),
+    });
+
+  it.each([
+    ['the sign-off', { fecho: true }],
+    ['an explanation', {}],
+  ])('glues it to the foot of %s, the last slide, the signature risen by its band', (_, flags) => {
+    const sealedSlide = drawn(lastOf(flags, true));
+    const seal = sealedSlide[sealedSlide.length - 1];
+
+    expect(seal?.transform).toMatchObject({ x: 0, y: SEAL_TOP });
+    expect(JSON.stringify(seal)).toContain('"name":"seal"');
+    expect(sign(lastOf(flags, true))).toBeCloseTo(sign(lastOf(flags, false)) - 140);
+    expect(sign(lastOf(flags, true))).toBeLessThan(SEAL_TOP);
+  });
+
+  /** `count` paragraphs of the same long sentence, on the last of two slides. */
+  const paragraphsSlide = (count: number, withSeal: boolean, reports: unknown[] = []) =>
+    contextOf(
+      Array.from({ length: count }, (_, index) => [
+        ...(index === 0 ? [] : [brk]),
+        ...words(`Parágrafo ${String(index + 1)} com bastante texto para ocupar a página toda.`),
+      ]).flat(),
+      { index: 1, count: 2, report: (item) => reports.push(item), ...(withSeal ? { selo } : {}) },
+    );
+  const overflowOf = (reports: unknown[]): number =>
+    (
+      reports.find((item) => (item as { code: string }).code === 'W_TEMPLATE_OVERFLOW') as {
+        overflow: number;
+      }
+    ).overflow;
+
+  it('lays the explanation out on the page above it', () => {
+    const paragraphs = (context: TemplateContext) =>
+      drawn(context).filter((node) => node.name?.startsWith('paragrafo-') === true);
+    const sealedSlide = paragraphsSlide(8, true);
+
+    expect(paragraphs(sealedSlide).every((node) => node.transform!.y < SEAL_TOP)).toBe(true);
+    expect(paragraphs(sealedSlide)).not.toEqual(paragraphs(paragraphsSlide(8, false)));
+  });
+
+  it("measures an explanation's overflow to the seal's top, 140 more than without it", () => {
+    const sealedReports: unknown[] = [];
+    const plainReports: unknown[] = [];
+    build(paragraphsSlide(20, true, sealedReports));
+    build(paragraphsSlide(20, false, plainReports));
+
+    expect(overflowOf(sealedReports)).toBeCloseTo(overflowOf(plainReports) + 140);
+  });
+
+  it('draws nothing on a slide that is not the last, nor on any slide of a brief without it', () => {
+    for (const flags of [{ capa: true }, {}, { fecho: true }]) {
+      const first = contextOf(words('x'), { adjustments: flags, index: 0, count: 2 });
+      const firstSealed = contextOf(words('x'), { adjustments: flags, index: 0, count: 2, selo });
+
+      expect(build(firstSealed)).toEqual(build(first));
+      expect(JSON.stringify(build(lastOf(flags, false)))).not.toContain('"name":"seal"');
+    }
   });
 });

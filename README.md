@@ -22,7 +22,7 @@ templates:
   voce-conhece:
     source:
       git: https://github.com/rafaelsilvalor/tyto-template-voce-conhece.git
-      ref: v0.5.1
+      ref: v0.6.0
 ```
 
 Or install the default branch, as it is:
@@ -87,6 +87,12 @@ formats: [grid]
   indented lines under it go on. `::imagem {sem-quadro} ./foto.png` draws that picture without
   the frame, at the paragraphs' place and width, between the same 3:1 and square.
 - **The sign-off**, `{fecho}`: empty, or one line that replaces its title.
+- **The seal** (0.6.0, Tyto TYTO-480): `selo: ./selo.png` in the frontmatter glues an art
+  1080 × 140 to the foot of the last slide, drawn with `cover`. The page above it shrinks by
+  140: the signature rises by the band and keeps its distance to the foot, an explanation's
+  paragraphs fit above it, and an overflow is measured to its top. Every house template with a
+  grid offers it the same way (Tyto `docs/template-conventions.md` › "The seal"); a brief
+  without it draws the same bytes as 0.5.1.
 - **No lone word** (Tyto ADR 0167): no title or paragraph ends on a line of one word. The
   template moves a word down from the line above, spaces the letters by up to a hundredth of an
   em or, for a title, sets it up to 8% smaller, never under its floor; the paragraphs keep the
@@ -143,10 +149,12 @@ The tests, all without Tyto:
   arrow and button on every slide but the last, capitals as Portuguese writes them, each size
   between its floor and ceiling and the overflow warning, the highlights' weight and colours
   (an unknown colour left plain), the `{titulo}`, and pictures among the lines in the order
-  written, held between 3:1 and square.
+  written, held between 3:1 and square, and the seal on the last slide only, the signature
+  risen by its band and an overflow measured to it.
 - `tests/examples.test.ts`: the example briefs compiled as Tyto compiles them, through
   `@tyto/template-kit/testing` (Tyto ADR 0152), against the HTML of each slide in
-  `tests/__snapshots__/`.
+  `tests/__snapshots__/`; with `selo:` the first three slides keep those bytes and the last
+  draws the seal.
 - `tests/faces.test.ts`: the manifest's CircularXX faces are exactly the ones the examples
   draw, and the rest are Tyto's symbol chain at every weight they draw (Noto Sans Math, then
   Source Sans 3 at 400 or 700, Tyto ADR 0168) — in a plugin's process a face left out measures

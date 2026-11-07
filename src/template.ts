@@ -36,7 +36,7 @@ import {
   text,
   vector,
 } from '@tyto/core/template';
-import { accentOf, drawLogo, oneInk, signatureOf } from '@tyto/house-style';
+import { accentOf, drawLogo, oneInk, sealOf, signatureOf } from '@tyto/house-style';
 import {
   ORPHAN_LIMITS,
   at,
@@ -46,6 +46,7 @@ import {
   plain,
   reportOrphan,
   reportOverflow,
+  sealed,
   settle,
 } from '@tyto/template-kit';
 
@@ -224,6 +225,10 @@ export const build: TemplateBuild = (context: TemplateContext) => {
   const role = roleOf(context);
   const last = context.artwork.index === context.artwork.count - 1;
   const base = { format: context.format, size: context.size, idPrefix: context.idPrefix };
+  // The last slide may close with the brief's `selo` (TYTO-201, TYTO-480): the page above it
+  // shrinks by the seal's height, and whatever stands on the foot rises by that band.
+  const page = sealed(context.size, sealOf(context));
+  const band = context.size.h - page.size.h;
 
   if (role === 'capa') {
     // The brief's `fundo` wins; else the configuration's `cover-background`; else flat.
@@ -240,6 +245,7 @@ export const build: TemplateBuild = (context: TemplateContext) => {
         at(COVER.x, LOGO.y, drawLogo(context.brand, LOGO.height, oneInk(ink('on-deep')))),
         ...cover(context, ink('on-deep'), accent),
         ...(last ? [] : coverButton({ fill: accent, ink: ink('deep') })),
+        ...page.seal,
       ],
     });
   }
@@ -252,7 +258,8 @@ export const build: TemplateBuild = (context: TemplateContext) => {
         at(SIDE_X, LOGO.y, drawLogo(context.brand, LOGO.height, oneInk(ink('on-deep')))),
         signOffTitle(context, accent),
         ...iconSignOff({ ink: ink('on-deep'), inside: ink('deep') }),
-        footSignature(context.brand, SIGN_OFF_SIGNATURE_TOP, ink('on-deep')),
+        footSignature(context.brand, SIGN_OFF_SIGNATURE_TOP - band, ink('on-deep')),
+        ...page.seal,
       ],
     });
   }
@@ -262,9 +269,10 @@ export const build: TemplateBuild = (context: TemplateContext) => {
     background: solid(ink('paper')),
     children: [
       at(SIDE_X, LOGO.y, drawLogo(context.brand, LOGO.height, oneInk(ink('deep')))),
-      ...explanation(context, ink),
-      footSignature(context.brand, BODY_SIGNATURE_TOP, ink('body-ink')),
-      ...(last ? [] : [arrow(BODY_ARROW, ink('deep'))]),
+      ...explanation(context, ink, band),
+      footSignature(context.brand, BODY_SIGNATURE_TOP - band, ink('body-ink')),
+      ...(last ? [] : [arrow({ ...BODY_ARROW, y: BODY_ARROW.y - band }, ink('deep'))]),
+      ...page.seal,
     ],
   });
 };
@@ -462,7 +470,10 @@ const BODY = {
 const SIDE_X = 80;
 /** The top of the footer on the explanation slides: the signature and the arrow. */
 const FOOTER_TOP = 1255;
-const ROOM = { top: LOGO.y + LOGO.height + BODY.margin, bottom: FOOTER_TOP - BODY.margin } as const;
+const PAGE_ROOM = {
+  top: LOGO.y + LOGO.height + BODY.margin,
+  bottom: FOOTER_TOP - BODY.margin,
+} as const;
 
 /** The arrow to the next slide at an explanation's foot. */
 const BODY_ARROW = { x: 857, y: 1256, w: 145, h: 34, shaft: 9 } as const;
@@ -478,8 +489,11 @@ interface Piece {
  * The explanation's paragraphs and pictures in the order written, centred as the reference's,
  * at the largest size between `body-floor` and `body-ceiling` at which they fit between the
  * logo and the footer. When not even the floor fits, the floor, reported as an overflow.
+ * `band` is the seal's height on a sealed last slide: the footer rises by it, and the room
+ * with it.
  */
-function explanation(context: TemplateContext, ink: Ink): NodeDraft[] {
+function explanation(context: TemplateContext, ink: Ink, band: number): NodeDraft[] {
+  const bounds = { top: PAGE_ROOM.top, bottom: PAGE_ROOM.bottom - band };
   const { title, parts } = titled(context, slideParts(context));
   const heading =
     title === undefined ? undefined : slideTitle(context, title, ink('slide-title-color'));
@@ -526,7 +540,7 @@ function explanation(context: TemplateContext, ink: Ink): NodeDraft[] {
     );
 
   const sizes = sizesBetween(context, 'body');
-  const room = ROOM.bottom - ROOM.top;
+  const room = bounds.bottom - bounds.top;
   const size =
     sizes.find((tried) => total(piecesAt(tried), tried) <= room) ?? sizes[sizes.length - 1]!;
   // No paragraph ends on one word (Tyto ADR 0167): each by a word moved down or its letter
@@ -556,10 +570,10 @@ function explanation(context: TemplateContext, ink: Ink): NodeDraft[] {
   }
   const pieces = piecesAt(size, settings);
   const height = total(pieces, size);
-  if (height > ROOM.bottom - ROOM.top)
-    reportOverflow(context.report, ROOM.top + height, ROOM.bottom);
+  if (height > bounds.bottom - bounds.top)
+    reportOverflow(context.report, bounds.top + height, bounds.bottom);
   // Centred on the reference's line, then held inside the room.
-  const top = Math.max(ROOM.top, Math.min(BODY.centre - height / 2, ROOM.bottom - height));
+  const top = Math.max(bounds.top, Math.min(BODY.centre - height / 2, bounds.bottom - height));
   let y = top;
   return pieces.flatMap((piece, index) => {
     if (index > 0) y += gapBetween(pieces[index - 1]!, piece, size);

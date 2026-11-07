@@ -22082,6 +22082,16 @@ function imageHeight(asset, width, fallback) {
   if (size === void 0 || !(size.w > 0) || !(size.h > 0)) return fallback;
   return width * size.h / size.w;
 }
+function sealed(size, seal) {
+  if (seal === void 0) return { size, seal: [] };
+  const band = { w: size.w, h: seal.height };
+  const art = block(
+    band.w,
+    band.h,
+    image({ name: "seal", asset: seal.asset, size: band, fit: "cover" })
+  );
+  return { size: { w: size.w, h: size.h - seal.height }, seal: [at(0, size.h - seal.height, art)] };
+}
 function reportOverflow(report, bottom, limit) {
   const overflow = bottom - limit;
   if (overflow > 0) report({ code: "W_TEMPLATE_OVERFLOW", overflow });
@@ -22333,6 +22343,13 @@ var style = (size, weight, color2) => ({
 var EXAM_STYLE = style(TYPE.exam, BOOK, ROW_INK);
 var TITLE_STYLE = style(TYPE.title, BOLD2, TITLE_INK);
 var TITLE_LINE = Math.round(TYPE.title * TITLE2.lineHeight);
+var SEAL_HEIGHT = 140;
+function sealOf(context) {
+  if (context.format !== "grid") return void 0;
+  if (context.artwork.index !== context.artwork.count - 1) return void 0;
+  const value = context.slots["selo"]?.value;
+  return value?.kind === "image" ? { asset: value.asset, height: SEAL_HEIGHT } : void 0;
+}
 var NUMBER2 = String.raw`\d[\d.,]*`;
 var TABLE_VALUE_DEFAULTS = {
   "title-gap": TITLE.gap,
@@ -22455,6 +22472,8 @@ var build = (context) => {
   const role = roleOf(context);
   const last = context.artwork.index === context.artwork.count - 1;
   const base2 = { format: context.format, size: context.size, idPrefix: context.idPrefix };
+  const page = sealed(context.size, sealOf(context));
+  const band = context.size.h - page.size.h;
   if (role === "capa") {
     const written = context.slots["fundo"]?.value;
     const picture = written?.kind === "image" ? written.asset : imageValue(context, "cover-background");
@@ -22465,7 +22484,8 @@ var build = (context) => {
         ...picture === void 0 ? [] : [image({ name: "fundo", asset: picture, size: context.size, fit: "cover" })],
         at(COVER.x, LOGO.y, drawLogo(context.brand, LOGO.height, oneInk(ink("on-deep")))),
         ...cover(context, ink("on-deep"), accent),
-        ...last ? [] : coverButton({ fill: accent, ink: ink("deep") })
+        ...last ? [] : coverButton({ fill: accent, ink: ink("deep") }),
+        ...page.seal
       ]
     });
   }
@@ -22477,7 +22497,8 @@ var build = (context) => {
         at(SIDE_X, LOGO.y, drawLogo(context.brand, LOGO.height, oneInk(ink("on-deep")))),
         signOffTitle(context, accent),
         ...iconSignOff({ ink: ink("on-deep"), inside: ink("deep") }),
-        footSignature(context.brand, SIGN_OFF_SIGNATURE_TOP, ink("on-deep"))
+        footSignature(context.brand, SIGN_OFF_SIGNATURE_TOP - band, ink("on-deep")),
+        ...page.seal
       ]
     });
   }
@@ -22486,9 +22507,10 @@ var build = (context) => {
     background: solid(ink("paper")),
     children: [
       at(SIDE_X, LOGO.y, drawLogo(context.brand, LOGO.height, oneInk(ink("deep")))),
-      ...explanation(context, ink),
-      footSignature(context.brand, BODY_SIGNATURE_TOP, ink("body-ink")),
-      ...last ? [] : [arrow(BODY_ARROW, ink("deep"))]
+      ...explanation(context, ink, band),
+      footSignature(context.brand, BODY_SIGNATURE_TOP - band, ink("body-ink")),
+      ...last ? [] : [arrow({ ...BODY_ARROW, y: BODY_ARROW.y - band }, ink("deep"))],
+      ...page.seal
     ]
   });
 };
@@ -22643,9 +22665,13 @@ var BODY2 = {
 };
 var SIDE_X = 80;
 var FOOTER_TOP = 1255;
-var ROOM = { top: LOGO.y + LOGO.height + BODY2.margin, bottom: FOOTER_TOP - BODY2.margin };
+var PAGE_ROOM = {
+  top: LOGO.y + LOGO.height + BODY2.margin,
+  bottom: FOOTER_TOP - BODY2.margin
+};
 var BODY_ARROW = { x: 857, y: 1256, w: 145, h: 34, shaft: 9 };
-function explanation(context, ink) {
+function explanation(context, ink, band) {
+  const bounds = { top: PAGE_ROOM.top, bottom: PAGE_ROOM.bottom - band };
   const { title, parts } = titled(context, slideParts(context));
   const heading = title === void 0 ? void 0 : slideTitle(context, title, ink("slide-title-color"));
   const paragraphTexts = [];
@@ -22680,7 +22706,7 @@ function explanation(context, ink) {
     0
   );
   const sizes = sizesBetween(context, "body");
-  const room = ROOM.bottom - ROOM.top;
+  const room = bounds.bottom - bounds.top;
   const size = sizes.find((tried) => total(piecesAt(tried), tried) <= room) ?? sizes[sizes.length - 1];
   let settings = /* @__PURE__ */ new Map();
   const fitsAtSize = total(piecesAt(size), size) <= room;
@@ -22706,9 +22732,9 @@ function explanation(context, ink) {
   }
   const pieces = piecesAt(size, settings);
   const height = total(pieces, size);
-  if (height > ROOM.bottom - ROOM.top)
-    reportOverflow(context.report, ROOM.top + height, ROOM.bottom);
-  const top = Math.max(ROOM.top, Math.min(BODY2.centre - height / 2, ROOM.bottom - height));
+  if (height > bounds.bottom - bounds.top)
+    reportOverflow(context.report, bounds.top + height, bounds.bottom);
+  const top = Math.max(bounds.top, Math.min(BODY2.centre - height / 2, bounds.bottom - height));
   let y = top;
   return pieces.flatMap((piece, index) => {
     if (index > 0) y += gapBetween(pieces[index - 1], piece, size);

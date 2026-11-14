@@ -19721,7 +19721,7 @@ function date4(params) {
   return _coercedDate(ZodDate, params);
 }
 
-// node_modules/.pnpm/@rafaelsilvalor+tyto-core@0.39.0/node_modules/@rafaelsilvalor/tyto-core/dist/chunk-WZSLWFYX.js
+// node_modules/.pnpm/@rafaelsilvalor+tyto-core@0.45.0/node_modules/@rafaelsilvalor/tyto-core/dist/chunk-IRXJ6IEL.js
 var SVG_MARKUP_WAY_OUT = "only flat shapes painted by presentation attributes are inlined: draw it as a contour (a vector of kind 'path'), place it as a PNG, or re-export it from Illustrator with Styling set to Presentation Attributes";
 var diagnosticCodes = {
   // Three syntax codes and not one, because fatality is a property of the code and one
@@ -20061,7 +20061,7 @@ var diagnosticCodes = {
   },
   E_PLUGIN_PROTOCOL: {
     severity: "error",
-    summary: "An isolated plugin sent the host a message that does not match the RPC protocol.",
+    summary: "An isolated plugin sent the host a message that does not match the RPC protocol, or an in-process panel call answered a shape that protocol refuses.",
     template: "Plugin '{plugin}' sent a message the host cannot read: {problem}.",
     spec: "docs/plugin-api.md",
     fatal: false,
@@ -20083,11 +20083,42 @@ var diagnosticCodes = {
     fatal: false,
     fatality: "It costs the one frame the call was for; the others are drawn (ADR 0025)."
   },
+  // A panel's page is anybody's JavaScript, so what it asks its own plugin is checked on the
+  // host, and a panel whose plugin registered no `call` is refused rather than ignored (ADR 0173).
+  E_PANEL_CALL: {
+    severity: "error",
+    summary: "A panel's page asked its plugin something the host refused: no 'call', a bad method, params over 1 MiB of JSON, or a throw from an in-process 'call'.",
+    template: "Panel '{panel}' could not call its plugin: {problem}.",
+    spec: "docs/adr/0173-a-panel-calls-its-own-plugin-process.md",
+    fatal: false,
+    fatality: "Only that call is refused; the panel stays open and its plugin keeps running."
+  },
+  // A panel's page is anybody's JavaScript, so a secret never enters it: the page asks its own
+  // plugin's process through `call`, and the process uses the credential (TYTO-641, ADR 0173).
+  E_PANEL_CREDENTIAL_READ: {
+    severity: "error",
+    summary: "A panel's page asked to read a credential, which the host never hands a page; it may still store and forget one.",
+    template: "Panel '{panel}' cannot read credential '{key}': ask its plugin through 'call', which uses the secret without putting it in the page.",
+    spec: "docs/adr/0173-a-panel-calls-its-own-plugin-process.md",
+    fatal: false,
+    fatality: "Only that read is refused; the panel stays open and its plugin keeps running."
+  },
   E_CREDENTIAL_MISSING: {
     severity: "error",
     summary: "A plugin asked for a credential it declared, and this host has no value for it.",
     template: "Plugin '{plugin}' asked for credential '{key}', and {source} holds none.",
     spec: "docs/plugin-api.md",
+    fatal: false,
+    fatality: "It is the plugin's call that is refused; what the plugin does with that is its own."
+  },
+  // A credential the host puts in a request's header for the plugin, which never holds it
+  // (ADR 0191): only to a host the plugin names in a net: permission of its own, never through
+  // net:*.
+  E_CREDENTIAL_HOST: {
+    severity: "error",
+    summary: "A plugin asked the host to send a credential to a host its manifest does not name in a net: permission of its own.",
+    template: "Plugin '{plugin}' asked to send credential '{key}' to {host}, which no net: permission of its own names (net:* does not count).",
+    spec: "docs/adr/0191-the-host-sends-a-plugins-secret-and-keeps-its-durable-records.md",
     fatal: false,
     fatality: "It is the plugin's call that is refused; what the plugin does with that is its own."
   },
@@ -20107,6 +20138,128 @@ var diagnosticCodes = {
     fatal: false,
     fatality: "It is the plugin's call that is refused; what the plugin does with that is its own."
   },
+  // Browser sign-in is the host's (ADR 0174): a plugin asks for an access token and never
+  // opens a browser, so "nobody signed in" and "this host cannot sign in" are two answers a
+  // plugin can tell apart and say to a person.
+  E_SIGNIN_REQUIRED: {
+    severity: "error",
+    summary: "A plugin asked for an access token of a sign-in it declared, and nobody signed in.",
+    template: "Plugin '{plugin}' needs sign-in '{id}', and nobody has signed in to it on {host}; {how}.",
+    spec: "docs/adr/0174-a-plugin-signs-in-through-the-host-with-pkce-on-loopback.md",
+    fatal: false,
+    fatality: "It is the plugin's call that is refused; what the plugin does with that is its own."
+  },
+  E_SIGNIN_UNAVAILABLE: {
+    severity: "error",
+    summary: "A plugin asked for an access token on a host that cannot sign in through a browser.",
+    template: "Plugin '{plugin}' asked for sign-in '{id}', and {host} cannot sign in through a browser.",
+    spec: "docs/adr/0174-a-plugin-signs-in-through-the-host-with-pkce-on-loopback.md",
+    fatal: false,
+    fatality: "It is the plugin's call that is refused; what the plugin does with that is its own."
+  },
+  // A program the host starts for a plugin, by name (ADR 0182). One code per answer a plugin
+  // shows a person differently: install it, trust the folder, use the desktop, wait.
+  E_PROCESS_UNAVAILABLE: {
+    severity: "error",
+    summary: "A plugin asked to start a program on a host that starts no programs.",
+    template: "Plugin '{plugin}' asked to start '{program}', and {host} starts no programs.",
+    spec: "docs/adr/0182-a-plugin-starts-one-named-program-through-the-host.md",
+    fatal: false,
+    fatality: "It is the plugin's call that is refused; what the plugin does with that is its own."
+  },
+  E_PROCESS_NOT_FOUND: {
+    severity: "error",
+    summary: "A plugin asked to start a program it declared, and the program is not on PATH.",
+    template: "Plugin '{plugin}' asked to start '{program}', which was not found on PATH; Tyto installs no program.",
+    spec: "docs/adr/0182-a-plugin-starts-one-named-program-through-the-host.md",
+    fatal: false,
+    fatality: "It is the plugin's call that is refused; what the plugin does with that is its own."
+  },
+  E_PROCESS_RESTRICTED: {
+    severity: "error",
+    summary: "A plugin asked to start a program while the open folder is restricted.",
+    template: "Plugin '{plugin}' asked to start '{program}', and the open folder is restricted; trust it to allow programs.",
+    spec: "docs/adr/0182-a-plugin-starts-one-named-program-through-the-host.md",
+    fatal: false,
+    fatality: "It is the plugin's call that is refused; what the plugin does with that is its own."
+  },
+  E_PROCESS_LIMIT: {
+    severity: "error",
+    summary: "A plugin asked to start a program while as many of its programs as allowed run.",
+    template: "Plugin '{plugin}' asked to start '{program}' while {limit} of its programs are running, the most it may have.",
+    spec: "docs/adr/0182-a-plugin-starts-one-named-program-through-the-host.md",
+    fatal: false,
+    fatality: "It is the plugin's call that is refused; what the plugin does with that is its own."
+  },
+  E_PROCESS_ARGUMENT: {
+    severity: "error",
+    summary: "A plugin passed a program an argument the host cannot pass to it unchanged.",
+    template: "Plugin '{plugin}' passed '{program}' an argument the host refuses: {problem}.",
+    spec: "docs/adr/0182-a-plugin-starts-one-named-program-through-the-host.md",
+    fatal: false,
+    fatality: "It is the plugin's call that is refused; what the plugin does with that is its own."
+  },
+  E_PROCESS_EXITED: {
+    severity: "error",
+    summary: "A plugin wrote to a program it started after that program had ended.",
+    template: "Plugin '{plugin}' wrote to '{program}' after it had ended.",
+    spec: "docs/adr/0182-a-plugin-starts-one-named-program-through-the-host.md",
+    fatal: false,
+    fatality: "It is the plugin's call that is refused; what the plugin does with that is its own."
+  },
+  // A plugin's own program and a terminal it opens (ADR 0184). A missing script is not "not on
+  // PATH": the plugin's install is broken, and reinstalling it is the fix.
+  E_PROCESS_SCRIPT_MISSING: {
+    severity: "error",
+    summary: "A plugin asked to start its own program, and the script its manifest names is not in its folder.",
+    template: "Plugin '{plugin}' asked to start its program '{program}', and its script {script} is not in the plugin's folder; reinstall the plugin.",
+    spec: "docs/adr/0184-a-plugin-runs-its-own-program-on-tytos-node-and-opens-a-terminal-for-it.md",
+    fatal: false,
+    fatality: "It is the plugin's call that is refused; what the plugin does with that is its own."
+  },
+  E_TERMINAL_UNAVAILABLE: {
+    severity: "error",
+    summary: "A plugin asked for a terminal tab on a host that has no terminal.",
+    template: "Plugin '{plugin}' asked for a terminal running '{program}', and {host} has no terminal.",
+    spec: "docs/adr/0184-a-plugin-runs-its-own-program-on-tytos-node-and-opens-a-terminal-for-it.md",
+    fatal: false,
+    fatality: "It is the plugin's call that is refused; what the plugin does with that is its own."
+  },
+  E_TERMINAL_LIMIT: {
+    severity: "error",
+    summary: "A plugin asked for a terminal tab while as many of its terminals as allowed are open.",
+    template: "Plugin '{plugin}' asked for a terminal running '{program}' while {limit} of its terminals is open, the most it may have; finish or close that one first.",
+    spec: "docs/adr/0184-a-plugin-runs-its-own-program-on-tytos-node-and-opens-a-terminal-for-it.md",
+    fatal: false,
+    fatality: "It is the plugin's call that is refused; what the plugin does with that is its own."
+  },
+  // The window's MCP server, handed to a plugin for the agent it starts (ADR 0183), and the
+  // window's tools, called by a plugin in process (ADR 0190). Three codes, so a panel can tell
+  // "turn agentsListen on" and "trust the folder" from "not on this host".
+  E_WINDOW_UNAVAILABLE: {
+    severity: "error",
+    summary: "A plugin asked to reach the window on a host that has no window.",
+    template: "Plugin '{plugin}' asked to reach the window, and {host} has no window.",
+    spec: "docs/adr/0183-a-plugin-gets-the-windows-agent-server-for-the-program-it-starts.md",
+    fatal: false,
+    fatality: "It is the plugin's call that is refused; what the plugin does with that is its own."
+  },
+  E_WINDOW_AGENTS_OFF: {
+    severity: "error",
+    summary: "A plugin asked to reach the window while agentsListen is off.",
+    template: "Plugin '{plugin}' asked to reach the window, and agentsListen is off in settings.json; turn it on to let agents reach the window.",
+    spec: "docs/adr/0183-a-plugin-gets-the-windows-agent-server-for-the-program-it-starts.md",
+    fatal: false,
+    fatality: "It is the plugin's call that is refused; what the plugin does with that is its own."
+  },
+  E_WINDOW_RESTRICTED: {
+    severity: "error",
+    summary: "A plugin asked to reach the window while the open folder is restricted.",
+    template: "Plugin '{plugin}' asked to reach the window, and the open folder is restricted; trust it to let agents reach the window.",
+    spec: "docs/adr/0183-a-plugin-gets-the-windows-agent-server-for-the-program-it-starts.md",
+    fatal: false,
+    fatality: "It is the plugin's call that is refused; what the plugin does with that is its own."
+  },
   // A plugin's private cache and the workspace files it reaches through the host (ADR 0138,
   // completing ADR 0130). Three codes, so a plugin can tell "trust the folder" from the rest.
   E_PLUGIN_CACHE: {
@@ -20114,6 +20267,15 @@ var diagnosticCodes = {
     summary: "A plugin's cache call was refused: an empty or oversized key, an entry over the ceiling, or a host with no cache.",
     template: "Plugin '{plugin}' could not use its cache entry '{key}': {problem}.",
     spec: "docs/adr/0138-a-plugin-cache-and-workspace-files-cross-the-host-boundary.md",
+    fatal: false,
+    fatality: "It is the plugin's call that is refused; what the plugin does with that is its own."
+  },
+  // A plugin's durable records, under its data folder (ADR 0191).
+  E_PLUGIN_STORAGE: {
+    severity: "error",
+    summary: "A plugin's storage call was refused: a key or value the store does not take, an unreadable record, or a host with no storage.",
+    template: "Plugin '{plugin}' could not use its stored record '{key}': {problem}.",
+    spec: "docs/adr/0191-the-host-sends-a-plugins-secret-and-keeps-its-durable-records.md",
     fatal: false,
     fatality: "It is the plugin's call that is refused; what the plugin does with that is its own."
   },
@@ -20201,6 +20363,14 @@ var diagnosticCodes = {
     fatal: false,
     fatality: "The template that won the name renders with its own defaults."
   },
+  W_PLUGIN_FILE_TEMPLATE_UNNAMED: {
+    severity: "warning",
+    summary: "A pack a plugin file fetched holds templates no entry names, so they are not offered.",
+    template: "The pack of plugin '{plugin}' that '{file}' fetches for '{template}' also holds {unnamed}; a fetched pack offers only the templates the plugin files name. To offer one, add an entry for it with the same git and ref as '{template}'.",
+    spec: "docs/adr/0151-plugin-files-install-and-configure-templates.md",
+    fatal: false,
+    fatality: "The templates the files name load; the others are left out, as before."
+  },
   W_PLUGIN_FILE_REPLACES_INSTALLED: {
     severity: "warning",
     summary: "A plugin from the plugin files has the name of one installed with tyto plugin install.",
@@ -20217,10 +20387,20 @@ var diagnosticCodes = {
     fatal: false,
     fatality: "The copy fetched earlier loads when there is one; a brief that needs one that is missing says so on its own."
   },
+  // TYTO-470: a deep TYTO_HOME on Windows used to end a render or a sync in a stack trace
+  // from `mkdtemp`. The cache layout stays; the run says which folder is too deep instead.
+  E_TYTO_HOME_PATH_TOO_LONG: {
+    severity: "error",
+    summary: "A path Tyto writes under TYTO_HOME is longer than the system accepts.",
+    template: "TYTO_HOME '{home}' is too deep a folder: a path Tyto writes under it reaches {length} characters, {reason}. Set TYTO_HOME to a shorter folder.",
+    spec: "docs/adr/0151-plugin-files-install-and-configure-templates.md",
+    fatal: false,
+    fatality: "Nothing is fetched under that folder; copies already in its cache still load, and a brief that needs a missing one says so on its own."
+  },
   E_PLUGIN_FILE_SOURCE_REFUSED: {
     severity: "error",
-    summary: "A commit a plugin file names was fetched and could not be loaded as a plugin.",
-    template: "'{git}' at '{ref}' resolved to commit {commit}, which was refused: {problem}. {outcome}",
+    summary: "A source a plugin file names was fetched and could not be loaded as a plugin.",
+    template: "'{git}' at '{ref}' resolved to {commit}, which was refused: {problem}. {outcome}",
     spec: "docs/adr/0151-plugin-files-install-and-configure-templates.md",
     fatal: false,
     fatality: "The commit locked before loads when there is one; otherwise nothing from that source does."
@@ -21248,6 +21428,36 @@ var diagnosticCodes = {
     fatal: false,
     fatality: "That cell has no plan and the cells after it do not run; earlier cells keep theirs. Nothing is written."
   },
+  // Apply runs the plan as shown, so a kept plan the verb's current writes no longer cover is
+  // refused whole, before any call, rather than applied in part (ADR 0170).
+  E_RECIPE_APPLY: {
+    severity: "error",
+    summary: "An Apply was refused before any write: the shown plan holds a write its verb no longer declares, or the verb cannot apply.",
+    template: "Applying the plan of '{verb}' was refused: {problem}.",
+    spec: "docs/adr/0170-apply-runs-the-shown-plan-in-batches-and-commits-state-from-every-plans-outcome.md",
+    fatal: false,
+    fatality: "Nothing of that plan is written, and no recipe state is committed."
+  },
+  // `to-brief` checks its rows against the template and the workspace before it plans, so a
+  // brief that could not compile, or a file outside the workspace, is never shown (ADR 0172).
+  E_RECIPE_BRIEF: {
+    severity: "error",
+    summary: "'to-brief' cannot plan its briefs: an unknown template or slot, a value brief text cannot hold, two rows with one file name, or a folder it may not write.",
+    template: "'to-brief' {problem}.",
+    spec: "docs/adr/0172-to-brief-writes-one-brief-per-row-through-host-ports.md",
+    fatal: false,
+    fatality: "That cell has no plan and the cells after it do not run; earlier cells keep theirs. Nothing is written."
+  },
+  // `call` checks its address, its credential and its body before it plans, so a request to a
+  // host the workspace did not allow is never shown, let alone sent (ADR 0193).
+  E_RECIPE_CALL: {
+    severity: "error",
+    summary: "'call' cannot plan its requests: an address that is not https, a host the workspace's project does not allow, a credential not stored on this machine, or a body too large.",
+    template: "'call' {problem}.",
+    spec: "docs/adr/0193-call-sends-one-request-per-row-to-a-host-the-workspace-allows.md",
+    fatal: false,
+    fatality: "That cell has no plan and the cells after it do not run; earlier cells keep theirs. Nothing is sent."
+  },
   E_RECIPE_VERB: {
     severity: "error",
     summary: "A verb a plugin contributes could not do its work, in its own words.",
@@ -21269,6 +21479,16 @@ var diagnosticCodes = {
     summary: "A recipe verb was given arguments it does not accept.",
     template: "'{verb}' {problem}.",
     spec: "docs/adr/0128-a-recipe-is-a-closed-vocabulary-notebook-and-plugins-contribute-verbs.md",
+    fatal: false,
+    fatality: "That cell has no table and the cells after it do not run; earlier cells keep theirs."
+  },
+  // The notebook owns the view names (ADR 0128) and passes them in; a run without the list,
+  // as the CLI's, never answers this (ADR 0171).
+  E_RECIPE_VIEW: {
+    severity: "error",
+    summary: "A recipe's 'show' names a view the notebook does not draw.",
+    template: "No view named '{view}' is drawn here. Available: {available}.",
+    spec: "docs/adr/0171-the-recipes-views-read-rows-from-main-in-pages-and-show-checks-its-view.md",
     fatal: false,
     fatality: "That cell has no table and the cells after it do not run; earlier cells keep theirs."
   },
@@ -21397,11 +21617,38 @@ var diagnosticCodes = {
   },
   E_RECIPE_TEMPLATE: {
     severity: "error",
-    summary: "A 'compose' or 'rules' template has an unclosed placeholder, a stray brace or a filter that does not exist.",
+    summary: "A 'compose' or 'rules' template has an unclosed placeholder, a stray brace, a filter that does not exist or a 'local' format with a letter outside a token.",
     template: "Template '{template}' {problem}.",
     spec: "docs/adr/0136-company-rules-are-configuration-read-by-generic-verbs.md",
     fatal: false,
     fatality: "That cell has no table and the cells after it do not run; earlier cells keep theirs."
+  },
+  // ADR 0176: a form writes one recipe line, and the text stays the source. A value the line
+  // format cannot hold is refused before anything is written, never written half-quoted.
+  E_RECIPE_FORM: {
+    severity: "error",
+    summary: "A step's form names a verb without a form, misses a required field, or holds a value one recipe line cannot carry.",
+    template: "This step cannot be written as a recipe line: {problem}.",
+    spec: "docs/adr/0176-a-recipe-and-its-vocabulary-are-authored-in-the-window-and-the-text-stays-the-source.md",
+    fatal: true,
+    fatality: "No line is written, so the recipe keeps the text it had."
+  },
+  // ADR 0176: a `*.vocab.json` is linted where it is written, before any recipe reads it.
+  E_VOCABULARY_SYNTAX: {
+    severity: "error",
+    summary: "A vocabulary file is not JSON with comments, or is not an object of sections.",
+    template: "The vocabulary file cannot be read: {problem}.",
+    spec: "docs/adr/0176-a-recipe-and-its-vocabulary-are-authored-in-the-window-and-the-text-stays-the-source.md",
+    fatal: false,
+    fatality: "The sections read around the problem are still linted."
+  },
+  E_VOCABULARY_SHAPE: {
+    severity: "error",
+    summary: "A vocabulary file's rules, rewrites or lookups section holds an entry that is not what the verb reading it accepts.",
+    template: "The vocabulary's '{pointer}' {problem}.",
+    spec: "docs/adr/0176-a-recipe-and-its-vocabulary-are-authored-in-the-window-and-the-text-stays-the-source.md",
+    fatal: false,
+    fatality: "The other entries are still linted, and a recipe reading that one fails its cell."
   },
   // Zero rows is a legitimate answer, but it cannot be told from a misspelt value if it is silent.
   W_RECIPE_WHERE_EMPTY: {
@@ -21430,6 +21677,16 @@ var diagnosticCodes = {
     fatal: false,
     fatality: "A warning never replaces a value (ADR 0013)."
   },
+  // TYTO-675: a cell '|local' cannot read is written empty, which a sheet shows as a missing
+  // date; one count per column keeps the reason visible.
+  W_RECIPE_LOCAL_UNREAD: {
+    severity: "warning",
+    summary: "A template's 'local' filter found cells that are not an ISO-8601 instant with a zone, and left them empty.",
+    template: "{count} cell(s) of '{column}' are not an ISO-8601 instant with Z or an offset, so 'local' wrote them empty.",
+    spec: "docs/adr/0139-a-recipe-run-reads-time-from-an-injected-clock.md",
+    fatal: false,
+    fatality: "A warning never replaces a value (ADR 0013)."
+  },
   // A child whose parent is not in the table counts toward no parent; a recipe that forgot to
   // fetch the parents would otherwise read as parents with no children.
   W_RECIPE_ROLLUP_ORPHANS: {
@@ -21437,6 +21694,27 @@ var diagnosticCodes = {
     summary: "A 'rollup' found rows whose parent is not a row of the table, and counted them nowhere.",
     template: "{count} row(s) name a parent in '{column}' that the table lacks: {parents}.",
     spec: "docs/adr/0140-a-recipe-remembers-applied-rows-in-machine-local-state.md",
+    fatal: false,
+    fatality: "A warning never replaces a value (ADR 0013)."
+  },
+  // TYTO-437: a recipe that reports to a person writes a warning, not a column a later 'where'
+  // can drop. One per matching row up to WARN_ROW_LIMIT, then one that counts the rest.
+  W_RECIPE_WARN: {
+    severity: "warning",
+    summary: "A 'warn' step's when= kept a row, and the run reports its message; past 100 rows, one more says how many were not listed.",
+    template: "{subject}: {message}",
+    spec: "docs/adr/0128-a-recipe-is-a-closed-vocabulary-notebook-and-plugins-contribute-verbs.md",
+    fatal: false,
+    fatality: "A warning never replaces a value (ADR 0013)."
+  },
+  // An Apply wrote, but the recipe's state was not committed (TYTO-378, ADR 0170 decision 4):
+  // another cell was stale or failed, or the state store refused the write. The next run sees
+  // the rows as changed and plans them again, so the person has to know.
+  W_RECIPE_NOT_REMEMBERED: {
+    severity: "warning",
+    summary: "A plan was applied but the recipe's state was not committed, so the next run plans those rows again.",
+    template: "The plan of '{verb}' was applied, not remembered: {problem}.",
+    spec: "docs/adr/0170-apply-runs-the-shown-plan-in-batches-and-commits-state-from-every-plans-outcome.md",
     fatal: false,
     fatality: "A warning never replaces a value (ADR 0013)."
   },
@@ -21763,7 +22041,7 @@ function imageValue(context, name) {
   return typeof value === "object" && "hash" in value ? value : void 0;
 }
 
-// node_modules/.pnpm/@rafaelsilvalor+tyto-core@0.39.0/node_modules/@rafaelsilvalor/tyto-core/dist/template.js
+// node_modules/.pnpm/@rafaelsilvalor+tyto-core@0.45.0/node_modules/@rafaelsilvalor/tyto-core/dist/template.js
 function base(options) {
   return {
     transform: { ...identityTransform, ...options.transform },
@@ -21865,7 +22143,7 @@ function frame(options) {
   };
 }
 
-// node_modules/.pnpm/@rafaelsilvalor+tyto-house-style@0.5.2/node_modules/@rafaelsilvalor/tyto-house-style/dist/chunk-YTKBFVV6.js
+// node_modules/.pnpm/@rafaelsilvalor+tyto-house-style@0.5.10/node_modules/@rafaelsilvalor/tyto-house-style/dist/chunk-YTKBFVV6.js
 var PAPER = "#fbfbfb";
 var INK = "#000000";
 var ZEBRA = "#f2f2f4";
@@ -21902,7 +22180,7 @@ var BODY = {
 };
 var OPTICAL_DROP = 0.15;
 
-// node_modules/.pnpm/@rafaelsilvalor+tyto-template-kit@0.11.0/node_modules/@rafaelsilvalor/tyto-template-kit/dist/index.js
+// node_modules/.pnpm/@rafaelsilvalor+tyto-template-kit@0.11.8/node_modules/@rafaelsilvalor/tyto-template-kit/dist/index.js
 function shifted(draft, dx, dy) {
   const transform2 = {
     ...draft.transform,
@@ -22265,7 +22543,7 @@ function plain(text2) {
   }).join("");
 }
 
-// node_modules/.pnpm/@rafaelsilvalor+tyto-house-style@0.5.2/node_modules/@rafaelsilvalor/tyto-house-style/dist/chunk-EIGOHDOF.js
+// node_modules/.pnpm/@rafaelsilvalor+tyto-house-style@0.5.10/node_modules/@rafaelsilvalor/tyto-house-style/dist/chunk-EIGOHDOF.js
 var PLACEHOLDER_LOGO = {
   box: { w: 186.09, h: 376.79 },
   d: (
@@ -22308,7 +22586,7 @@ function signatureOf(kit) {
   return kit.signature ?? PLACEHOLDER_SIGNATURE;
 }
 
-// node_modules/.pnpm/@rafaelsilvalor+tyto-house-style@0.5.2/node_modules/@rafaelsilvalor/tyto-house-style/dist/index.js
+// node_modules/.pnpm/@rafaelsilvalor+tyto-house-style@0.5.10/node_modules/@rafaelsilvalor/tyto-house-style/dist/index.js
 var TITLE_INK = "#7c7c7c";
 var ROW_INK = "#393939";
 var FACE = systemFont("CircularXX");

@@ -1326,9 +1326,9 @@ var Class = class {
   constructor(..._args) {
   }
 };
-function members(proto, table) {
-  for (const key in table) {
-    const desc = Object.getOwnPropertyDescriptor(table, key);
+function members(proto, table2) {
+  for (const key in table2) {
+    const desc = Object.getOwnPropertyDescriptor(table2, key);
     if (desc.get)
       Object.defineProperty(proto, key, { ...desc, enumerable: false });
     else
@@ -1343,10 +1343,10 @@ function hide(inst, key, value) {
   return own(inst, key, value, false);
 }
 // @__NO_SIDE_EFFECTS__
-function derived(computes, table) {
+function derived(computes, table2) {
   for (const key in computes) {
     const compute = computes[key];
-    Object.defineProperty(table, key, {
+    Object.defineProperty(table2, key, {
       configurable: true,
       enumerable: true,
       get() {
@@ -1357,7 +1357,7 @@ function derived(computes, table) {
       }
     });
   }
-  return table;
+  return table2;
 }
 function defineBound(proto, key, fn) {
   Object.defineProperty(proto, key, {
@@ -5071,17 +5071,17 @@ var recursive = /* @__PURE__ */ new WeakMap();
 var NONE = 0;
 var ASSUMED = 1;
 var PROVEN = 2;
-function isRecursive(inst, stack, resolve) {
+function isRecursive(inst, stack2, resolve) {
   const cached2 = recursive.get(inst);
   if (cached2 !== void 0)
     return cached2 ? PROVEN : NONE;
-  if (stack.has(inst))
+  if (stack2.has(inst))
     return PROVEN;
-  stack.add(inst);
+  stack2.add(inst);
   let result = NONE;
   const check2 = (child) => {
     if (result !== PROVEN && child?._zod) {
-      const answer = isRecursive(child, stack, resolve);
+      const answer = isRecursive(child, stack2, resolve);
       if (answer > result)
         result = answer;
     }
@@ -5092,7 +5092,7 @@ function isRecursive(inst, stack, resolve) {
       const desc = Object.getOwnPropertyDescriptor(sh, key);
       if (spread && !desc.enumerable)
         continue;
-      const child = desc.get ? ASSUMED : desc.value?._zod ? isRecursive(desc.value, stack, resolve) : NONE;
+      const child = desc.get ? ASSUMED : desc.value?._zod ? isRecursive(desc.value, stack2, resolve) : NONE;
       if (child > answer)
         answer = child;
     }
@@ -5157,7 +5157,7 @@ function isRecursive(inst, stack, resolve) {
     // `$ZodLazy` caches its inner on the def, so a resolved edge is followed exactly
     case "lazy": {
       const inner = def._cachedInner ?? (resolve ? inst._zod.innerType : void 0);
-      merge3(inner ? isRecursive(inner, stack, false) : ASSUMED);
+      merge3(inner ? isRecursive(inner, stack2, false) : ASSUMED);
       break;
     }
     // a leaf by choice: `parts` are regex fragments, not data positions
@@ -5200,7 +5200,7 @@ function isRecursive(inst, stack, resolve) {
       }
     }
   }
-  stack.delete(inst);
+  stack2.delete(inst);
   return settle(inst, result);
 }
 function settle(inst, answer) {
@@ -19721,7 +19721,7 @@ function date4(params) {
   return _coercedDate(ZodDate, params);
 }
 
-// node_modules/.pnpm/@rafaelsilvalor+tyto-core@0.39.0/node_modules/@rafaelsilvalor/tyto-core/dist/chunk-WZSLWFYX.js
+// node_modules/.pnpm/@rafaelsilvalor+tyto-core@0.59.0/node_modules/@rafaelsilvalor/tyto-core/dist/chunk-NUEMZ7BR.js
 var SVG_MARKUP_WAY_OUT = "only flat shapes painted by presentation attributes are inlined: draw it as a contour (a vector of kind 'path'), place it as a PNG, or re-export it from Illustrator with Styling set to Presentation Attributes";
 var diagnosticCodes = {
   // Three syntax codes and not one, because fatality is a property of the code and one
@@ -19785,6 +19785,24 @@ var diagnosticCodes = {
     fatal: false,
     fatality: "The value of one slot; it stays unset and the rest of the artwork is drawn anyway."
   },
+  E_BAD_COMUM: {
+    severity: "error",
+    summary: "A `::comum` line, which closes the slides, carries text or adjustments, or is written where there are no slides to close.",
+    template: "'::comum' {problem}.",
+    spec: "docs/brief-language.md",
+    fatal: false,
+    fatality: "One line: what it carries is ignored, and a misplaced one closes nothing while the rest of the brief is read as written."
+  },
+  // An error, not a warning (ADR 0227): an anchor that places nothing would leave the block
+  // off that artwork without a word.
+  E_BAD_BLOCK_NAME: {
+    severity: "error",
+    summary: "A shared block's name, or an empty directive that places one on a slide, does not name a shared block once.",
+    template: "'::{slot}' {problem}.",
+    spec: "docs/adr/0227-shared-and-slide-blocks-add-up-and-a-named-block-is-placed-by-name.md",
+    fatal: false,
+    fatality: "One line: the name or the anchor is ignored, and the shared block is drawn where it was written."
+  },
   E_UNKNOWN_SLOT: {
     severity: "error",
     summary: "A directive names a slot the template manifest does not declare.",
@@ -19840,6 +19858,22 @@ var diagnosticCodes = {
     spec: "docs/adr/0117-a-plugin-source-is-fetched-once-and-read-from-a-cache.md",
     fatal: false,
     fatality: "One image the brief named, exactly as a missing file is: the slot stays unset and the rest of the brief renders."
+  },
+  E_ASSET_DECODER_MISSING: {
+    severity: "error",
+    summary: "The brief names a file of a kind no picture is drawn from, and no installed plugin decodes it.",
+    template: "Asset '{path}' is a '{extension}' file, which Tyto cannot draw by itself; install a plugin that decodes '{extension}' files.",
+    spec: "docs/adr/0223-a-plugin-decodes-a-file-kind-into-an-image-through-a-one-call-token.md",
+    fatal: false,
+    fatality: "One image the brief named, exactly as a missing file is: the slot stays unset and the rest of the brief renders."
+  },
+  E_ASSET_DECODE_FAILED: {
+    severity: "error",
+    summary: "The plugin that decodes a file kind could not turn the file the brief named into a picture.",
+    template: "Asset '{path}' could not be decoded by plugin '{plugin}': {problem}.",
+    spec: "docs/adr/0223-a-plugin-decodes-a-file-kind-into-an-image-through-a-one-call-token.md",
+    fatal: false,
+    fatality: "One image the brief named, never drawn blank: the slot stays unset as for a missing file and the rest of the brief renders."
   },
   E_UNSUPPORTED_CSS: {
     severity: "error",
@@ -20061,7 +20095,7 @@ var diagnosticCodes = {
   },
   E_PLUGIN_PROTOCOL: {
     severity: "error",
-    summary: "An isolated plugin sent the host a message that does not match the RPC protocol.",
+    summary: "An isolated plugin sent the host a message that does not match the RPC protocol, or an in-process panel call answered a shape that protocol refuses.",
     template: "Plugin '{plugin}' sent a message the host cannot read: {problem}.",
     spec: "docs/plugin-api.md",
     fatal: false,
@@ -20083,11 +20117,42 @@ var diagnosticCodes = {
     fatal: false,
     fatality: "It costs the one frame the call was for; the others are drawn (ADR 0025)."
   },
+  // A panel's page is anybody's JavaScript, so what it asks its own plugin is checked on the
+  // host, and a panel whose plugin registered no `call` is refused rather than ignored (ADR 0173).
+  E_PANEL_CALL: {
+    severity: "error",
+    summary: "A panel's page asked its plugin something the host refused: no 'call', a bad method, params over 1 MiB of JSON, or a throw from an in-process 'call'.",
+    template: "Panel '{panel}' could not call its plugin: {problem}.",
+    spec: "docs/adr/0173-a-panel-calls-its-own-plugin-process.md",
+    fatal: false,
+    fatality: "Only that call is refused; the panel stays open and its plugin keeps running."
+  },
+  // A panel's page is anybody's JavaScript, so a secret never enters it: the page asks its own
+  // plugin's process through `call`, and the process uses the credential (TYTO-641, ADR 0173).
+  E_PANEL_CREDENTIAL_READ: {
+    severity: "error",
+    summary: "A panel's page asked to read a credential, which the host never hands a page; it may still store and forget one.",
+    template: "Panel '{panel}' cannot read credential '{key}': ask its plugin through 'call', which uses the secret without putting it in the page.",
+    spec: "docs/adr/0173-a-panel-calls-its-own-plugin-process.md",
+    fatal: false,
+    fatality: "Only that read is refused; the panel stays open and its plugin keeps running."
+  },
   E_CREDENTIAL_MISSING: {
     severity: "error",
     summary: "A plugin asked for a credential it declared, and this host has no value for it.",
     template: "Plugin '{plugin}' asked for credential '{key}', and {source} holds none.",
     spec: "docs/plugin-api.md",
+    fatal: false,
+    fatality: "It is the plugin's call that is refused; what the plugin does with that is its own."
+  },
+  // A credential the host puts in a request's header for the plugin, which never holds it
+  // (ADR 0191): only to a host the plugin names in a net: permission of its own, never through
+  // net:*.
+  E_CREDENTIAL_HOST: {
+    severity: "error",
+    summary: "A plugin asked the host to send a credential to a host its manifest does not name in a net: permission of its own.",
+    template: "Plugin '{plugin}' asked to send credential '{key}' to {host}, which no net: permission of its own names (net:* does not count).",
+    spec: "docs/adr/0191-the-host-sends-a-plugins-secret-and-keeps-its-durable-records.md",
     fatal: false,
     fatality: "It is the plugin's call that is refused; what the plugin does with that is its own."
   },
@@ -20107,6 +20172,128 @@ var diagnosticCodes = {
     fatal: false,
     fatality: "It is the plugin's call that is refused; what the plugin does with that is its own."
   },
+  // Browser sign-in is the host's (ADR 0174): a plugin asks for an access token and never
+  // opens a browser, so "nobody signed in" and "this host cannot sign in" are two answers a
+  // plugin can tell apart and say to a person.
+  E_SIGNIN_REQUIRED: {
+    severity: "error",
+    summary: "A plugin asked for an access token of a sign-in it declared, and nobody signed in.",
+    template: "Plugin '{plugin}' needs sign-in '{id}', and nobody has signed in to it on {host}; {how}.",
+    spec: "docs/adr/0174-a-plugin-signs-in-through-the-host-with-pkce-on-loopback.md",
+    fatal: false,
+    fatality: "It is the plugin's call that is refused; what the plugin does with that is its own."
+  },
+  E_SIGNIN_UNAVAILABLE: {
+    severity: "error",
+    summary: "A plugin asked for an access token on a host that cannot sign in through a browser.",
+    template: "Plugin '{plugin}' asked for sign-in '{id}', and {host} cannot sign in through a browser.",
+    spec: "docs/adr/0174-a-plugin-signs-in-through-the-host-with-pkce-on-loopback.md",
+    fatal: false,
+    fatality: "It is the plugin's call that is refused; what the plugin does with that is its own."
+  },
+  // A program the host starts for a plugin, by name (ADR 0182). One code per answer a plugin
+  // shows a person differently: install it, trust the folder, use the desktop, wait.
+  E_PROCESS_UNAVAILABLE: {
+    severity: "error",
+    summary: "A plugin asked to start a program on a host that starts no programs.",
+    template: "Plugin '{plugin}' asked to start '{program}', and {host} starts no programs.",
+    spec: "docs/adr/0182-a-plugin-starts-one-named-program-through-the-host.md",
+    fatal: false,
+    fatality: "It is the plugin's call that is refused; what the plugin does with that is its own."
+  },
+  E_PROCESS_NOT_FOUND: {
+    severity: "error",
+    summary: "A plugin asked to start a program it declared, and the program is not on PATH.",
+    template: "Plugin '{plugin}' asked to start '{program}', which was not found on PATH; Tyto installs no program.",
+    spec: "docs/adr/0182-a-plugin-starts-one-named-program-through-the-host.md",
+    fatal: false,
+    fatality: "It is the plugin's call that is refused; what the plugin does with that is its own."
+  },
+  E_PROCESS_RESTRICTED: {
+    severity: "error",
+    summary: "A plugin asked to start a program while the open folder is restricted.",
+    template: "Plugin '{plugin}' asked to start '{program}', and the open folder is restricted; trust it to allow programs.",
+    spec: "docs/adr/0182-a-plugin-starts-one-named-program-through-the-host.md",
+    fatal: false,
+    fatality: "It is the plugin's call that is refused; what the plugin does with that is its own."
+  },
+  E_PROCESS_LIMIT: {
+    severity: "error",
+    summary: "A plugin asked to start a program while as many of its programs as allowed run.",
+    template: "Plugin '{plugin}' asked to start '{program}' while {limit} of its programs are running, the most it may have.",
+    spec: "docs/adr/0182-a-plugin-starts-one-named-program-through-the-host.md",
+    fatal: false,
+    fatality: "It is the plugin's call that is refused; what the plugin does with that is its own."
+  },
+  E_PROCESS_ARGUMENT: {
+    severity: "error",
+    summary: "A plugin passed a program an argument the host cannot pass to it unchanged.",
+    template: "Plugin '{plugin}' passed '{program}' an argument the host refuses: {problem}.",
+    spec: "docs/adr/0182-a-plugin-starts-one-named-program-through-the-host.md",
+    fatal: false,
+    fatality: "It is the plugin's call that is refused; what the plugin does with that is its own."
+  },
+  E_PROCESS_EXITED: {
+    severity: "error",
+    summary: "A plugin wrote to a program it started after that program had ended.",
+    template: "Plugin '{plugin}' wrote to '{program}' after it had ended.",
+    spec: "docs/adr/0182-a-plugin-starts-one-named-program-through-the-host.md",
+    fatal: false,
+    fatality: "It is the plugin's call that is refused; what the plugin does with that is its own."
+  },
+  // A plugin's own program and a terminal it opens (ADR 0184). A missing script is not "not on
+  // PATH": the plugin's install is broken, and reinstalling it is the fix.
+  E_PROCESS_SCRIPT_MISSING: {
+    severity: "error",
+    summary: "A plugin asked to start its own program, and the script its manifest names is not in its folder.",
+    template: "Plugin '{plugin}' asked to start its program '{program}', and its script {script} is not in the plugin's folder; reinstall the plugin.",
+    spec: "docs/adr/0184-a-plugin-runs-its-own-program-on-tytos-node-and-opens-a-terminal-for-it.md",
+    fatal: false,
+    fatality: "It is the plugin's call that is refused; what the plugin does with that is its own."
+  },
+  E_TERMINAL_UNAVAILABLE: {
+    severity: "error",
+    summary: "A plugin asked for a terminal tab on a host that has no terminal.",
+    template: "Plugin '{plugin}' asked for a terminal running '{program}', and {host} has no terminal.",
+    spec: "docs/adr/0184-a-plugin-runs-its-own-program-on-tytos-node-and-opens-a-terminal-for-it.md",
+    fatal: false,
+    fatality: "It is the plugin's call that is refused; what the plugin does with that is its own."
+  },
+  E_TERMINAL_LIMIT: {
+    severity: "error",
+    summary: "A plugin asked for a terminal tab while as many of its terminals as allowed are open.",
+    template: "Plugin '{plugin}' asked for a terminal running '{program}' while {limit} of its terminals is open, the most it may have; finish or close that one first.",
+    spec: "docs/adr/0184-a-plugin-runs-its-own-program-on-tytos-node-and-opens-a-terminal-for-it.md",
+    fatal: false,
+    fatality: "It is the plugin's call that is refused; what the plugin does with that is its own."
+  },
+  // The window's MCP server, handed to a plugin for the agent it starts (ADR 0183), and the
+  // window's tools, called by a plugin in process (ADR 0190). Three codes, so a panel can tell
+  // "turn agentsListen on" and "trust the folder" from "not on this host".
+  E_WINDOW_UNAVAILABLE: {
+    severity: "error",
+    summary: "A plugin asked to reach the window on a host that has no window.",
+    template: "Plugin '{plugin}' asked to reach the window, and {host} has no window.",
+    spec: "docs/adr/0183-a-plugin-gets-the-windows-agent-server-for-the-program-it-starts.md",
+    fatal: false,
+    fatality: "It is the plugin's call that is refused; what the plugin does with that is its own."
+  },
+  E_WINDOW_AGENTS_OFF: {
+    severity: "error",
+    summary: "A plugin asked to reach the window while agentsListen is off.",
+    template: "Plugin '{plugin}' asked to reach the window, and agentsListen is off in settings.json; turn it on to let agents reach the window.",
+    spec: "docs/adr/0183-a-plugin-gets-the-windows-agent-server-for-the-program-it-starts.md",
+    fatal: false,
+    fatality: "It is the plugin's call that is refused; what the plugin does with that is its own."
+  },
+  E_WINDOW_RESTRICTED: {
+    severity: "error",
+    summary: "A plugin asked to reach the window while the open folder is restricted.",
+    template: "Plugin '{plugin}' asked to reach the window, and the open folder is restricted; trust it to let agents reach the window.",
+    spec: "docs/adr/0183-a-plugin-gets-the-windows-agent-server-for-the-program-it-starts.md",
+    fatal: false,
+    fatality: "It is the plugin's call that is refused; what the plugin does with that is its own."
+  },
   // A plugin's private cache and the workspace files it reaches through the host (ADR 0138,
   // completing ADR 0130). Three codes, so a plugin can tell "trust the folder" from the rest.
   E_PLUGIN_CACHE: {
@@ -20114,6 +20301,15 @@ var diagnosticCodes = {
     summary: "A plugin's cache call was refused: an empty or oversized key, an entry over the ceiling, or a host with no cache.",
     template: "Plugin '{plugin}' could not use its cache entry '{key}': {problem}.",
     spec: "docs/adr/0138-a-plugin-cache-and-workspace-files-cross-the-host-boundary.md",
+    fatal: false,
+    fatality: "It is the plugin's call that is refused; what the plugin does with that is its own."
+  },
+  // A plugin's durable records, under its data folder (ADR 0191).
+  E_PLUGIN_STORAGE: {
+    severity: "error",
+    summary: "A plugin's storage call was refused: a key or value the store does not take, an unreadable record, or a host with no storage.",
+    template: "Plugin '{plugin}' could not use its stored record '{key}': {problem}.",
+    spec: "docs/adr/0191-the-host-sends-a-plugins-secret-and-keeps-its-durable-records.md",
     fatal: false,
     fatality: "It is the plugin's call that is refused; what the plugin does with that is its own."
   },
@@ -20201,6 +20397,14 @@ var diagnosticCodes = {
     fatal: false,
     fatality: "The template that won the name renders with its own defaults."
   },
+  W_PLUGIN_FILE_TEMPLATE_UNNAMED: {
+    severity: "warning",
+    summary: "A pack a plugin file fetched holds templates no entry names, so they are not offered.",
+    template: "The pack of plugin '{plugin}' that '{file}' fetches for '{template}' also holds {unnamed}; a fetched pack offers only the templates the plugin files name. To offer one, add an entry for it with the same git and ref as '{template}'.",
+    spec: "docs/adr/0151-plugin-files-install-and-configure-templates.md",
+    fatal: false,
+    fatality: "The templates the files name load; the others are left out, as before."
+  },
   W_PLUGIN_FILE_REPLACES_INSTALLED: {
     severity: "warning",
     summary: "A plugin from the plugin files has the name of one installed with tyto plugin install.",
@@ -20217,10 +20421,20 @@ var diagnosticCodes = {
     fatal: false,
     fatality: "The copy fetched earlier loads when there is one; a brief that needs one that is missing says so on its own."
   },
+  // TYTO-470: a deep TYTO_HOME on Windows used to end a render or a sync in a stack trace
+  // from `mkdtemp`. The cache layout stays; the run says which folder is too deep instead.
+  E_TYTO_HOME_PATH_TOO_LONG: {
+    severity: "error",
+    summary: "A path Tyto writes under TYTO_HOME is longer than the system accepts.",
+    template: "TYTO_HOME '{home}' is too deep a folder: a path Tyto writes under it reaches {length} characters, {reason}. Set TYTO_HOME to a shorter folder.",
+    spec: "docs/adr/0151-plugin-files-install-and-configure-templates.md",
+    fatal: false,
+    fatality: "Nothing is fetched under that folder; copies already in its cache still load, and a brief that needs a missing one says so on its own."
+  },
   E_PLUGIN_FILE_SOURCE_REFUSED: {
     severity: "error",
-    summary: "A commit a plugin file names was fetched and could not be loaded as a plugin.",
-    template: "'{git}' at '{ref}' resolved to commit {commit}, which was refused: {problem}. {outcome}",
+    summary: "A source a plugin file names was fetched and could not be loaded as a plugin.",
+    template: "'{git}' at '{ref}' resolved to {commit}, which was refused: {problem}. {outcome}",
     spec: "docs/adr/0151-plugin-files-install-and-configure-templates.md",
     fatal: false,
     fatality: "The commit locked before loads when there is one; otherwise nothing from that source does."
@@ -20331,6 +20545,22 @@ var diagnosticCodes = {
     fatal: true,
     fatality: "The IR is malformed, so the exporter has nothing it can draw."
   },
+  E_SCENE_GUIDE_NODE_NOT_FOUND: {
+    severity: "error",
+    summary: "A guide's layer names a node that is not one of its frame's top-level children.",
+    template: "Layer '{layer}' of the guide for '{frame}' names node '{id}', which is not one of the frame's top-level children.",
+    spec: "docs/adr/0220-a-slot-may-declare-art-painted-outside-tyto.md",
+    fatal: true,
+    fatality: "The IR is malformed, so the exporter has nothing it can draw."
+  },
+  E_SCENE_GUIDE_LAYERING: {
+    severity: "error",
+    summary: "A frame's node is not in exactly one of its guide's layers.",
+    template: "Node '{id}' of the guide for '{frame}' is in {count} layers; every top-level node is in exactly one.",
+    spec: "docs/adr/0220-a-slot-may-declare-art-painted-outside-tyto.md",
+    fatal: true,
+    fatality: "A node in no layer would vanish from the layered file and one in two would be painted twice, so the IR is malformed."
+  },
   E_SCENE_MASK_DESCENDANT: {
     severity: "error",
     summary: "A mask references a descendant of the node it masks.",
@@ -20423,6 +20653,30 @@ var diagnosticCodes = {
     spec: "docs/template-authoring.md",
     fatal: true,
     fatality: "A frame with no size cannot be drawn, and `compile` refuses before it builds anything \u2014 so the formats that are defined do not render either, which is what would have to change first."
+  },
+  E_EXTERNAL_ART_ASPECT: {
+    severity: "error",
+    summary: "A slot's full external art does not keep the proportion of a format it covers (ADR 0220).",
+    template: "Slot '{slot}' of template '{template}' declares full art of {width}\xD7{height} for format '{format}', which is {formatWidth}\xD7{formatHeight}: full art keeps the format's proportion, so its height there is {expected}.",
+    spec: "docs/adr/0220-a-slot-may-declare-art-painted-outside-tyto.md",
+    fatal: true,
+    fatality: "The declaration is the size somebody paints to, and art painted to the wrong proportion is cropped or stretched on every render; `compile` refuses before it builds anything, as it does for a format with no size."
+  },
+  E_GUIDE_NO_EXTERNAL_ART: {
+    severity: "error",
+    summary: "A guide was asked for a brief whose template declares no art painted outside Tyto (ADR 0221).",
+    template: "Template '{template}' declares no slot with external art, so there is no guide to write: a guide is for a slot whose manifest declares 'external'.",
+    spec: "docs/adr/0221-a-guides-layers-are-rasterised-into-the-scene-and-an-exporter-may-answer-bytes.md",
+    fatal: true,
+    fatality: "A guide with no art is the artwork cut into layers with nowhere to paint, which looks like a guide and guides nothing; the run writes no file."
+  },
+  E_GUIDE_NEWER_THAN_BRIEF: {
+    severity: "error",
+    summary: "A guide was not written over because it changed after the brief and may hold paint (ADR 0222).",
+    template: "The guide '{guide}' was changed after the brief, and may hold the art painted in it: move it away, or pass --force to write it again.",
+    spec: "docs/adr/0222-external-art-has-a-file-per-format-beside-the-cited-one.md",
+    fatal: true,
+    fatality: "Writing over a guide somebody painted in loses their work with no way back, so the run writes no guide at all and says which file stopped it."
   },
   E_MANIFEST_SYNTAX: {
     severity: "error",
@@ -20653,6 +20907,25 @@ var diagnosticCodes = {
     fatal: false,
     fatality: "A warning never replaces a value (ADR 0013)."
   },
+  // Raised by a template the same way (TYTO-837): two colours it draws text in, chosen by a
+  // brief or a configuration (ADR 0226), are too close to read well. A warning: the person
+  // chose the colours, and the frame is drawn in them.
+  W_TEMPLATE_LOW_CONTRAST: {
+    severity: "warning",
+    summary: "Two colours an artwork draws text in have too little contrast to read well.",
+    template: "Artwork '{artwork}' in format '{format}': '{foreground}' on '{background}' has a contrast of {ratio}:1, too little for template '{template}' to read well; the colours are kept.",
+    spec: "docs/adr/0058-a-template-reports-warnings-beside-its-frame.md",
+    fatal: false,
+    fatality: "A warning never replaces a value (ADR 0013)."
+  },
+  W_EXTERNAL_ART_MISSING: {
+    severity: "warning",
+    summary: "A slot whose art is painted outside Tyto has no file yet, and an outlined box stands in for it (ADR 0220).",
+    template: "Slot '{slot}' of template '{template}' has no art yet ({reason}); an outlined box is drawn where it goes.",
+    spec: "docs/adr/0220-a-slot-may-declare-art-painted-outside-tyto.md",
+    fatal: false,
+    fatality: "The art arrives later by design, and the box keeps its place, size and stacking in every format; a warning never replaces a value (ADR 0013)."
+  },
   // Warnings and not errors: a configuration is tolerant per value, as a plugin file is per
   // entry (ADR 0151 decision 2). The template draws with its default instead, and says so.
   W_TEMPLATE_VALUE_UNKNOWN: {
@@ -20665,7 +20938,7 @@ var diagnosticCodes = {
   },
   W_TEMPLATE_VALUE_INVALID: {
     severity: "warning",
-    summary: "A configuration sets a declared value to one of the wrong kind or outside its limits.",
+    summary: "A configuration or a brief's frontmatter sets a declared value to one of the wrong kind or outside its limits.",
     template: "Value '{name}' of template '{template}' {problem}; the template's default is used.",
     spec: "docs/adr/0153-a-template-declares-its-configurable-values-in-its-manifest.md",
     fatal: false,
@@ -20726,6 +20999,34 @@ var diagnosticCodes = {
     fatal: false,
     fatality: "A warning never replaces a value (ADR 0013)."
   },
+  // Three codes and not one, because the fix differs: a command Tyto does not draw, a brace
+  // out of place, and a formula or group with nothing in it (ADR 0206 decision 5, TYTO-734).
+  // Not fatal: the formula is drawn as the text the author wrote, `$` included, so the
+  // artwork still exists and shows exactly what was not understood.
+  E_FORMULA_COMMAND: {
+    severity: "error",
+    summary: "A formula holds a `\\` command or escape other than `\\frac`, `\\ `, `\\$`, `\\{` and `\\}`.",
+    template: "'{command}' is not something a formula can draw; it knows \\frac, ^ and _, and a \\ before a space, a $ or a brace.",
+    spec: "docs/brief-language.md",
+    fatal: false,
+    fatality: "The formula is drawn as its source text and the rest of the brief is unaffected."
+  },
+  E_FORMULA_GROUP: {
+    severity: "error",
+    summary: "A `{\u2026}` in a formula is missing, unclosed, or where no group belongs.",
+    template: "Formula group: {problem}.",
+    spec: "docs/brief-language.md",
+    fatal: false,
+    fatality: "The formula is drawn as its source text and the rest of the brief is unaffected."
+  },
+  E_FORMULA_EMPTY: {
+    severity: "error",
+    summary: "A formula (`$$`) or one of its groups (`{}`) holds nothing.",
+    template: "This {part} is empty; write what it should hold.",
+    spec: "docs/brief-language.md",
+    fatal: false,
+    fatality: "The formula is drawn as its source text and the rest of the brief is unaffected."
+  },
   // A warning and not an error, because the brief still means what the author meant: the
   // `\` is dropped and the line breaks once, as every block line does (ADR 0109). It says so
   // because the `\` used to add an empty line, and an author who wrote it for that gets told.
@@ -20733,6 +21034,18 @@ var diagnosticCodes = {
     severity: "warning",
     summary: "A line of a directive body ends in a `\\` and another line of its indented block follows, which already starts a new line.",
     template: "Every line of an indented block already starts a new line; this \\ is not needed.",
+    spec: "docs/brief-language.md",
+    fatal: false,
+    fatality: "A warning never replaces a value (ADR 0013)."
+  },
+  // A warning and not an error, because the line is valid: since TYTO-708 a text line at
+  // column 0 is a body line of the directive above (ADR 0202). One that starts with a single
+  // `:` and a name is most likely a directive missing a colon, and reading it as text without
+  // a word would turn a typo into a silent change of the artwork.
+  W_LIKELY_DIRECTIVE: {
+    severity: "warning",
+    summary: "A body line at column 0 starts with a single `:` and a name, which reads like a directive missing a colon; it is kept as text.",
+    template: "'{line}' is read as text; a directive starts with ::.",
     spec: "docs/brief-language.md",
     fatal: false,
     fatality: "A warning never replaces a value (ADR 0013)."
@@ -21085,6 +21398,15 @@ var diagnosticCodes = {
     fatal: false,
     fatality: "A warning never replaces a value (ADR 0013)."
   },
+  // TYTO-536: a shared folder must not put words in a person's command line before it is trusted.
+  W_PROJECT_ALIASES_WITHHELD: {
+    severity: "warning",
+    summary: "A restricted source's command panel aliases are withheld until it is trusted.",
+    template: "The aliases {aliases} are withheld because this folder is not trusted.",
+    spec: "docs/adr/0111-nothing-a-source-ships-runs-before-the-person-trusts-it.md",
+    fatal: false,
+    fatality: "Only the source's aliases are left out; the person's own still expand."
+  },
   W_PROJECT_PLUGIN_FILES_WITHHELD: {
     severity: "warning",
     summary: "A restricted folder's plugin files are neither fetched nor loaded until the folder is trusted.",
@@ -21199,7 +21521,7 @@ var diagnosticCodes = {
   },
   E_RECIPE_PARAM: {
     severity: "error",
-    summary: "A recipe's parameter is used without a declaration, or has no value when it runs.",
+    summary: "A recipe's param, const or set is used where unknown, has no value, or is overridden.",
     template: "Parameter '{param}' {problem}.",
     spec: "docs/adr/0128-a-recipe-is-a-closed-vocabulary-notebook-and-plugins-contribute-verbs.md",
     fatal: true,
@@ -21248,6 +21570,86 @@ var diagnosticCodes = {
     fatal: false,
     fatality: "That cell has no plan and the cells after it do not run; earlier cells keep theirs. Nothing is written."
   },
+  // Apply runs the plan as shown, so a kept plan the verb's current writes no longer cover is
+  // refused whole, before any call, rather than applied in part (ADR 0170).
+  E_RECIPE_APPLY: {
+    severity: "error",
+    summary: "An Apply was refused before any write: the shown plan holds a write its verb no longer declares, or the verb cannot apply.",
+    template: "Applying the plan of '{verb}' was refused: {problem}.",
+    spec: "docs/adr/0170-apply-runs-the-shown-plan-in-batches-and-commits-state-from-every-plans-outcome.md",
+    fatal: false,
+    fatality: "Nothing of that plan is written, and no recipe state is committed."
+  },
+  // ADR 0219: one Apply of every plan of an `apply together` recipe, refused before any write or
+  // stopped at the first cell that does not go through.
+  E_RECIPE_APPLY_TOGETHER: {
+    severity: "error",
+    summary: "'apply together' did not apply every plan: it was refused before any write, or it stopped at a cell whose Apply did not go through.",
+    template: "'apply together' {problem}.",
+    spec: "docs/adr/0219-apply-together-applies-a-runs-plans-in-order-against-the-renames-above.md",
+    fatal: false,
+    fatality: "The plans below the cell it names are not applied and wait for the next run; what the cells above it applied stays applied."
+  },
+  // `to-brief` checks its rows against the template and the workspace before it plans, so a
+  // brief that could not compile, or a file outside the workspace, is never shown (ADR 0172).
+  E_RECIPE_BRIEF: {
+    severity: "error",
+    summary: "'to-brief' cannot plan its briefs: an unknown template or slot, a value brief text cannot hold, two rows with one file name, or a folder it may not write.",
+    template: "'to-brief' {problem}.",
+    spec: "docs/adr/0172-to-brief-writes-one-brief-per-row-through-host-ports.md",
+    fatal: false,
+    fatality: "That cell has no plan and the cells after it do not run; earlier cells keep theirs. Nothing is written."
+  },
+  // `to-delivery` checks its arguments and the workspace before it plans; a row it cannot write
+  // is refused in the cell's note instead, and the other rows still plan (ADR 0210).
+  E_RECIPE_DELIVERY: {
+    severity: "error",
+    summary: "'to-delivery' cannot plan its delivery records: an unknown field, a field a recipe may not write, a host that writes none, or a folder it may not write.",
+    template: "'to-delivery' {problem}.",
+    spec: "docs/adr/0210-a-delivery-may-exist-without-a-brief-and-a-record-says-what-it-is.md",
+    fatal: false,
+    fatality: "That cell has no plan and the cells after it do not run; earlier cells keep theirs. Nothing is written."
+  },
+  // `rename-exports` checks its arguments and the workspace before it plans; a delivery it cannot
+  // rename is refused in the cell's note instead, and the others still plan (ADR 0218).
+  E_RECIPE_RENAME_EXPORTS: {
+    severity: "error",
+    summary: "'rename-exports' cannot plan the names of the deliveries' exports: a missing argument, a host that renames no files, or a folder it may not write.",
+    template: "'rename-exports' {problem}.",
+    spec: "docs/adr/0218-a-deliverys-exports-are-renamed-by-its-stem-as-a-plan.md",
+    fatal: false,
+    fatality: "That cell has no plan and the cells after it do not run; earlier cells keep theirs. Nothing is renamed."
+  },
+  // `deliveries` reads the records back as rows only inside a trusted workspace; a record it
+  // cannot read is a warning, and the other folders still read (ADR 0211).
+  E_RECIPE_DELIVERIES: {
+    severity: "error",
+    summary: "'deliveries' cannot read the delivery records: the host reads none, the recipe is in no trusted workspace, or fields= lists a name a declared field cannot have.",
+    template: "'deliveries' {problem}.",
+    spec: "docs/adr/0211-the-delivery-folder-is-the-source-and-inbound-fields-name-a-winner.md",
+    fatal: false,
+    fatality: "That cell has no table and the cells after it do not run; earlier cells keep theirs. Nothing is written."
+  },
+  // `with-deliveries` reads the same records beside rows already there, through the same checks,
+  // and refuses to shadow a column the table has (TYTO-779, ADR 0213's note of 2026-11-18).
+  E_RECIPE_WITH_DELIVERIES: {
+    severity: "error",
+    summary: "'with-deliveries' cannot bring the delivery records: the host reads none, the recipe is in no trusted workspace, fields= lists a name a declared field cannot have, or the table already has a column it would add.",
+    template: "'with-deliveries' {problem}.",
+    spec: "docs/adr/0213-a-delivery-record-keeps-the-fields-a-recipe-declares.md",
+    fatal: false,
+    fatality: "That cell has no table and the cells after it do not run; earlier cells keep theirs. Nothing is written."
+  },
+  // `call` checks its address, its credential and its body before it plans, so a request to a
+  // host the workspace did not allow is never shown, let alone sent (ADR 0193).
+  E_RECIPE_CALL: {
+    severity: "error",
+    summary: "'call' cannot plan its requests: an address that is not https, a host the workspace's project does not allow, a credential not stored on this machine, or a body too large.",
+    template: "'call' {problem}.",
+    spec: "docs/adr/0193-call-sends-one-request-per-row-to-a-host-the-workspace-allows.md",
+    fatal: false,
+    fatality: "That cell has no plan and the cells after it do not run; earlier cells keep theirs. Nothing is sent."
+  },
   E_RECIPE_VERB: {
     severity: "error",
     summary: "A verb a plugin contributes could not do its work, in its own words.",
@@ -21269,6 +21671,16 @@ var diagnosticCodes = {
     summary: "A recipe verb was given arguments it does not accept.",
     template: "'{verb}' {problem}.",
     spec: "docs/adr/0128-a-recipe-is-a-closed-vocabulary-notebook-and-plugins-contribute-verbs.md",
+    fatal: false,
+    fatality: "That cell has no table and the cells after it do not run; earlier cells keep theirs."
+  },
+  // The notebook owns the view names (ADR 0128) and passes them in; a run without the list,
+  // as the CLI's, never answers this (ADR 0171).
+  E_RECIPE_VIEW: {
+    severity: "error",
+    summary: "A recipe's 'show' names a view the notebook does not draw.",
+    template: "No view named '{view}' is drawn here. Available: {available}.",
+    spec: "docs/adr/0171-the-recipes-views-read-rows-from-main-in-pages-and-show-checks-its-view.md",
     fatal: false,
     fatality: "That cell has no table and the cells after it do not run; earlier cells keep theirs."
   },
@@ -21397,11 +21809,38 @@ var diagnosticCodes = {
   },
   E_RECIPE_TEMPLATE: {
     severity: "error",
-    summary: "A 'compose' or 'rules' template has an unclosed placeholder, a stray brace or a filter that does not exist.",
+    summary: "A 'compose' or 'rules' template has an unclosed placeholder, a stray brace, a filter that does not exist or a 'local' format with a letter outside a token.",
     template: "Template '{template}' {problem}.",
     spec: "docs/adr/0136-company-rules-are-configuration-read-by-generic-verbs.md",
     fatal: false,
     fatality: "That cell has no table and the cells after it do not run; earlier cells keep theirs."
+  },
+  // ADR 0176: a form writes one recipe line, and the text stays the source. A value the line
+  // format cannot hold is refused before anything is written, never written half-quoted.
+  E_RECIPE_FORM: {
+    severity: "error",
+    summary: "A step's form names a verb without a form, misses a required field, or holds a value one recipe line cannot carry.",
+    template: "This step cannot be written as a recipe line: {problem}.",
+    spec: "docs/adr/0176-a-recipe-and-its-vocabulary-are-authored-in-the-window-and-the-text-stays-the-source.md",
+    fatal: true,
+    fatality: "No line is written, so the recipe keeps the text it had."
+  },
+  // ADR 0176: a `*.vocab.json` is linted where it is written, before any recipe reads it.
+  E_VOCABULARY_SYNTAX: {
+    severity: "error",
+    summary: "A vocabulary file is not JSON with comments, or is not an object of sections.",
+    template: "The vocabulary file cannot be read: {problem}.",
+    spec: "docs/adr/0176-a-recipe-and-its-vocabulary-are-authored-in-the-window-and-the-text-stays-the-source.md",
+    fatal: false,
+    fatality: "The sections read around the problem are still linted."
+  },
+  E_VOCABULARY_SHAPE: {
+    severity: "error",
+    summary: "A vocabulary file's rules, rewrites or lookups section holds an entry that is not what the verb reading it accepts.",
+    template: "The vocabulary's '{pointer}' {problem}.",
+    spec: "docs/adr/0176-a-recipe-and-its-vocabulary-are-authored-in-the-window-and-the-text-stays-the-source.md",
+    fatal: false,
+    fatality: "The other entries are still linted, and a recipe reading that one fails its cell."
   },
   // Zero rows is a legitimate answer, but it cannot be told from a misspelt value if it is silent.
   W_RECIPE_WHERE_EMPTY: {
@@ -21430,6 +21869,16 @@ var diagnosticCodes = {
     fatal: false,
     fatality: "A warning never replaces a value (ADR 0013)."
   },
+  // TYTO-675: a cell '|local' cannot read is written empty, which a sheet shows as a missing
+  // date; one count per column keeps the reason visible.
+  W_RECIPE_LOCAL_UNREAD: {
+    severity: "warning",
+    summary: "A template's 'local' filter found cells that are not an ISO-8601 instant with a zone, and left them empty.",
+    template: "{count} cell(s) of '{column}' are not an ISO-8601 instant with Z or an offset, so 'local' wrote them empty.",
+    spec: "docs/adr/0139-a-recipe-run-reads-time-from-an-injected-clock.md",
+    fatal: false,
+    fatality: "A warning never replaces a value (ADR 0013)."
+  },
   // A child whose parent is not in the table counts toward no parent; a recipe that forgot to
   // fetch the parents would otherwise read as parents with no children.
   W_RECIPE_ROLLUP_ORPHANS: {
@@ -21437,6 +21886,76 @@ var diagnosticCodes = {
     summary: "A 'rollup' found rows whose parent is not a row of the table, and counted them nowhere.",
     template: "{count} row(s) name a parent in '{column}' that the table lacks: {parents}.",
     spec: "docs/adr/0140-a-recipe-remembers-applied-rows-in-machine-local-state.md",
+    fatal: false,
+    fatality: "A warning never replaces a value (ADR 0013)."
+  },
+  // TYTO-437: a recipe that reports to a person writes a warning, not a column a later 'where'
+  // can drop. One per matching row up to WARN_ROW_LIMIT, then one that counts the rest.
+  W_RECIPE_WARN: {
+    severity: "warning",
+    summary: "A 'warn' step's when= kept a row, and the run reports its message; past 100 rows, one more says how many were not listed.",
+    template: "{subject}: {message}",
+    spec: "docs/adr/0128-a-recipe-is-a-closed-vocabulary-notebook-and-plugins-contribute-verbs.md",
+    fatal: false,
+    fatality: "A warning never replaces a value (ADR 0013)."
+  },
+  // TYTO-771: one unreadable record leaves its delivery out of the table, never the others.
+  W_RECIPE_DELIVERY_RECORD: {
+    severity: "warning",
+    summary: "'deliveries' or 'with-deliveries' left a delivery out: its record is not one, its folder could not be read, or another folder has its key or its name.",
+    template: "'{verb}' left out {folder}: {problem}.",
+    spec: "docs/adr/0211-the-delivery-folder-is-the-source-and-inbound-fields-name-a-winner.md",
+    fatal: false,
+    fatality: "The other deliveries are still read; nothing is written."
+  },
+  // TYTO-776: a declared field two edits from a fixed one is likely a slip, and would otherwise
+  // be written silently as a new field next to the one the recipe meant.
+  W_RECIPE_DELIVERY_FIELD_NEAR: {
+    severity: "warning",
+    summary: "'to-delivery' declares a field whose name is two edits or fewer from a fixed field's, which may be a slip.",
+    template: "'{field}' is declared as a new field; did you mean '{fixed}'?",
+    spec: "docs/adr/0213-a-delivery-record-keeps-the-fields-a-recipe-declares.md",
+    fatal: false,
+    fatality: "The field is still declared and written; a name may be close to a fixed one."
+  },
+  // TYTO-776: a record written by hand before declared fields may hold another shape under
+  // `fields`; it still reads, and the warning says why its declared columns are empty.
+  W_RECIPE_DELIVERY_FIELDS_UNREAD: {
+    severity: "warning",
+    summary: "'deliveries' or 'with-deliveries' read a record whose 'fields' is not a map of text, and gave it no declared fields.",
+    template: "'{verb}' read {folder} without its declared fields: its 'fields' is not a map of text.",
+    spec: "docs/adr/0213-a-delivery-record-keeps-the-fields-a-recipe-declares.md",
+    fatal: false,
+    fatality: "The delivery is still read, with its fixed fields; nothing is written."
+  },
+  // TYTO-714: with clear=push, a sheet read that lost a column reads as every cell cleared. The
+  // run holds those clears instead of clearing the remote side, and says which column.
+  W_RECIPE_DECIDE_CLEAR_COLUMN: {
+    severity: "warning",
+    summary: "A 'decide' with clear=push found its local column missing or empty on every row, and pushed no clear that run.",
+    template: "Column '{column}' {problem}, so 'decide' held its {count} clear(s) and cleared nothing on the remote side.",
+    spec: "docs/adr/0140-a-recipe-remembers-applied-rows-in-machine-local-state.md",
+    fatal: false,
+    fatality: "A warning never replaces a value (ADR 0013)."
+  },
+  // TYTO-714: more clears in one run than a person makes between runs is held, all of them, until
+  // the recipe raises clear-limit= for a run that means it.
+  W_RECIPE_DECIDE_CLEAR_LIMIT: {
+    severity: "warning",
+    summary: "A 'decide' with clear=push would have pushed more clears than clear-limit=, and pushed none of them.",
+    template: "'decide' held {count} clear(s), more than clear-limit={limit}; to push them, raise clear-limit= for this run, or write clear-limit=none to lift the limit.",
+    spec: "docs/adr/0140-a-recipe-remembers-applied-rows-in-machine-local-state.md",
+    fatal: false,
+    fatality: "A warning never replaces a value (ADR 0013)."
+  },
+  // An Apply wrote, but the recipe's state was not committed (TYTO-378, ADR 0170 decision 4):
+  // another cell was stale or failed, or the state store refused the write. The next run sees
+  // the rows as changed and plans them again, so the person has to know.
+  W_RECIPE_NOT_REMEMBERED: {
+    severity: "warning",
+    summary: "A plan was applied but the recipe's state was not committed, so the next run plans those rows again.",
+    template: "The plan of '{verb}' was applied, not remembered: {problem}.",
+    spec: "docs/adr/0170-apply-runs-the-shown-plan-in-batches-and-commits-state-from-every-plans-outcome.md",
     fatal: false,
     fatality: "A warning never replaces a value (ADR 0013)."
   },
@@ -21497,6 +22016,22 @@ function rememberOrigin(run2, range) {
 }
 function originOf(run2) {
   return origins.get(run2);
+}
+function linearReading(math) {
+  const grouped = (items) => {
+    const reading = linearReading(items);
+    return [...reading].length === 1 ? reading : `(${reading})`;
+  };
+  return math.map((item) => {
+    switch (item.kind) {
+      case "text":
+        return item.text;
+      case "fraction":
+        return `${grouped(item.numerator)}/${grouped(item.denominator)}`;
+      case "scripts":
+        return (item.subscript === void 0 ? "" : `_${grouped(item.subscript)}`) + (item.superscript === void 0 ? "" : `^${grouped(item.superscript)}`);
+    }
+  }).join("");
 }
 function isStandaloneOperator(word) {
   return OPERATOR_WORD.test(word);
@@ -21725,6 +22260,24 @@ function styled(inline, style2, options) {
       return style2;
   }
 }
+function breakOf(inline, spacing) {
+  return inline.paragraph === true && spacing !== void 0 && Number.isFinite(spacing) && spacing > 0 ? { kind: "break", space: spacing } : { kind: "break" };
+}
+function formulaOf(inline, style2) {
+  const { font: font2, size, weight, style: slant, color: color2 } = run(inline.source, style2);
+  const produced = {
+    kind: "formula",
+    text: linearReading(inline.math),
+    math: [...inline.math],
+    font: font2,
+    size,
+    weight,
+    style: slant,
+    color: color2
+  };
+  rememberOrigin(produced, inline.range);
+  return produced;
+}
 function append(target, text2, style2, options) {
   for (const inline of text2) {
     switch (inline.kind) {
@@ -21737,7 +22290,10 @@ function append(target, text2, style2, options) {
         break;
       }
       case "break":
-        target.push({ kind: "break" });
+        target.push(breakOf(inline, options.paragraphSpacing));
+        break;
+      case "formula":
+        target.push(formulaOf(inline, style2));
         break;
       default:
         append(target, inline.children, styled(inline, style2, options), options);
@@ -21763,7 +22319,7 @@ function imageValue(context, name) {
   return typeof value === "object" && "hash" in value ? value : void 0;
 }
 
-// node_modules/.pnpm/@rafaelsilvalor+tyto-core@0.39.0/node_modules/@rafaelsilvalor/tyto-core/dist/template.js
+// node_modules/.pnpm/@rafaelsilvalor+tyto-core@0.59.0/node_modules/@rafaelsilvalor/tyto-core/dist/template.js
 function base(options) {
   return {
     transform: { ...identityTransform, ...options.transform },
@@ -21865,7 +22421,7 @@ function frame(options) {
   };
 }
 
-// node_modules/.pnpm/@rafaelsilvalor+tyto-house-style@0.5.2/node_modules/@rafaelsilvalor/tyto-house-style/dist/chunk-YTKBFVV6.js
+// node_modules/.pnpm/@rafaelsilvalor+tyto-house-style@0.9.0/node_modules/@rafaelsilvalor/tyto-house-style/dist/chunk-3KKHXN6D.js
 var PAPER = "#fbfbfb";
 var INK = "#000000";
 var ZEBRA = "#f2f2f4";
@@ -21902,7 +22458,7 @@ var BODY = {
 };
 var OPTICAL_DROP = 0.15;
 
-// node_modules/.pnpm/@rafaelsilvalor+tyto-template-kit@0.11.0/node_modules/@rafaelsilvalor/tyto-template-kit/dist/index.js
+// node_modules/.pnpm/@rafaelsilvalor+tyto-template-kit@0.24.0/node_modules/@rafaelsilvalor/tyto-template-kit/dist/index.js
 function shifted(draft, dx, dy) {
   const transform2 = {
     ...draft.transform,
@@ -21922,11 +22478,37 @@ function shifted(draft, dx, dy) {
       return { ...draft, transform: transform2 };
   }
 }
+function offsetFor(align, room, size) {
+  switch (align) {
+    case "start":
+      return 0;
+    case "center":
+      return (room - size) / 2;
+    case "end":
+      return room - size;
+  }
+}
 function block(width, height, draft) {
   return { width, height, draft };
 }
+function stack(options) {
+  const gap = options.gap ?? 0;
+  const align = options.align ?? "start";
+  const width = options.items.reduce((widest, item) => Math.max(widest, item.width), 0);
+  let y = 0;
+  const children = [];
+  for (const item of options.items) {
+    children.push(shifted(item.draft, offsetFor(align, width, item.width), y));
+    y += item.height + gap;
+  }
+  const height = options.items.length === 0 ? 0 : y - gap;
+  return { width, height, draft: groupOf(children, options.name) };
+}
 function at(x, y, item) {
   return shifted(item.draft, x, y);
+}
+function groupOf(children, name) {
+  return group({ children, ...name === void 0 ? {} : { name } });
 }
 var NUMBER = String.raw`\d[\d.,]*`;
 var UNITS = [
@@ -22077,6 +22659,32 @@ function mark(shape, height, fill, name) {
     })
   );
 }
+function lines(text2) {
+  const result = [];
+  let current = [];
+  for (const inline of text2) {
+    if (inline.kind === "break") {
+      result.push(current);
+      current = [];
+      continue;
+    }
+    current.push(inline);
+  }
+  result.push(current);
+  return result.filter((line) => plain(line).trim() !== "");
+}
+function plain(text2) {
+  return text2.map((inline) => {
+    switch (inline.kind) {
+      case "text":
+        return inline.value;
+      case "break":
+        return "\n";
+      default:
+        return plain(inline.children);
+    }
+  }).join("");
+}
 function imageHeight(asset, width, fallback) {
   const size = asset?.size;
   if (size === void 0 || !(size.w > 0) || !(size.h > 0)) return fallback;
@@ -22202,9 +22810,15 @@ function withBreakBefore(runs, paragraph2, piece) {
       continue;
     }
     const start = offset;
-    if (current === paragraph2) offset += run2.text.length;
+    if (current === paragraph2) offset += textOf(run2).length;
     if (done || current !== paragraph2 || cut2 >= offset) {
       result.push(run2);
+      continue;
+    }
+    if (run2.kind === "formula") {
+      trimLast(result);
+      result.push({ kind: "break" }, run2);
+      done = true;
       continue;
     }
     const at2 = cut2 - start;
@@ -22223,11 +22837,15 @@ function trimLast(runs) {
   if (text2 === "") runs.pop();
   else runs[runs.length - 1] = { ...last, text: text2 };
 }
+var FORMULA_TEXT = "\uFFFC";
+function textOf(run2) {
+  return run2.kind === "formula" ? FORMULA_TEXT : run2.text;
+}
 function linesOf(runs) {
   const lines2 = [""];
   for (const run2 of runs) {
     if (run2.kind === "break") lines2.push("");
-    else lines2[lines2.length - 1] += run2.text;
+    else lines2[lines2.length - 1] += textOf(run2);
   }
   return lines2;
 }
@@ -22238,34 +22856,277 @@ function reportOrphan(report, word) {
   if (word !== void 0)
     report({ code: "W_TEMPLATE_ORPHAN", word: [...word].slice(0, ORPHAN_WORD_LIMIT).join("") });
 }
-function lines(text2) {
-  const result = [];
-  let current = [];
-  for (const inline of text2) {
-    if (inline.kind === "break") {
-      result.push(current);
-      current = [];
-      continue;
+var NO_PADDING = { top: 0, bottom: 0, left: 0, right: 0 };
+function table(style2, rows, width) {
+  const placed = placeColumns(style2, rows, width);
+  const seen = /* @__PURE__ */ new Map();
+  const drawn = rows.map((row2, index) => {
+    const count = seen.get(row2.kind) ?? 0;
+    seen.set(row2.kind, count + 1);
+    const edges = { first: index === 0, last: index === rows.length - 1 };
+    return row2.span === true ? drawBand(style2, placed, row2, count, edges, width) : drawRow(style2, placed, row2, count, edges, width);
+  });
+  return stack({
+    ...style2.names.table === void 0 ? {} : { name: style2.names.table },
+    gap: style2.rowGap,
+    items: drawn
+  });
+}
+function gapOf(style2) {
+  return (style2.layering ?? "side-by-side") === "side-by-side" ? style2.columnGap ?? 0 : 0;
+}
+function paddingOf(column) {
+  return column.padding ?? NO_PADDING;
+}
+function placeColumns(style2, rows, width) {
+  const gap = gapOf(style2);
+  const widths = style2.columns.map((column, index) => {
+    if (typeof column.width === "number" || column.width === "fill") return column.width;
+    const padding = paddingOf(column);
+    let widest = 0;
+    for (const row2 of rows) {
+      if (row2.span === true) continue;
+      const natural = row2.cells[index]?.naturalWidth?.();
+      if (natural !== void 0) widest = Math.max(widest, natural);
     }
-    current.push(inline);
+    return Math.max(column.width.measured.min, padding.left + widest + padding.right);
+  });
+  const taken = widths.reduce((sum, each) => sum + (each === "fill" ? 0 : each), 0);
+  const fill = width - taken - gap * Math.max(0, style2.columns.length - 1);
+  let x = 0;
+  return style2.columns.map((column, index) => {
+    const own2 = widths[index];
+    const columnWidth = own2 === "fill" ? fill : own2;
+    const result = { column, index, x, width: columnWidth };
+    x += columnWidth + gap;
+    return result;
+  });
+}
+function fillOf(style2, kind, column, count) {
+  const paint = style2.kinds[kind];
+  if (paint === void 0) return void 0;
+  if (paint.zebra !== void 0 && paint.zebra.length > 0) {
+    return paint.zebra[count % paint.zebra.length] ?? void 0;
   }
-  result.push(current);
-  return result.filter((line) => plain(line).trim() !== "");
+  return typeof paint.fill === "string" ? paint.fill : paint.fill?.[column];
 }
-function plain(text2) {
-  return text2.map((inline) => {
-    switch (inline.kind) {
-      case "text":
-        return inline.value;
-      case "break":
-        return "\n";
-      default:
-        return plain(inline.children);
+function cornersOf(style2, column, edges, left, right) {
+  if (column?.radius !== void 0) return column.radius;
+  const corners = style2.corners;
+  if (corners === void 0) return void 0;
+  if (corners.at === "every-cell") return corners.radius;
+  const r = corners.radius;
+  const tuple2 = [
+    edges.first && left ? r : 0,
+    edges.first && right ? r : 0,
+    edges.last && right ? r : 0,
+    edges.last && left ? r : 0
+  ];
+  return tuple2.every((each) => each === 0) ? void 0 : tuple2;
+}
+function drawRow(style2, placed, row2, count, edges, width) {
+  const measured = placed.map((cell) => {
+    const content = row2.cells[cell.index];
+    if (content === void 0) return void 0;
+    const padding = paddingOf(cell.column);
+    return content.draw(cell.width - padding.left - padding.right);
+  });
+  const height = placed.reduce(
+    (tallest, cell, index) => {
+      const content = row2.cells[cell.index];
+      const own2 = measured[index];
+      if (content === void 0 || own2 === void 0 || content.sizesRow === false) {
+        return tallest;
+      }
+      const padding = paddingOf(cell.column);
+      return Math.max(tallest, own2.height + padding.top + padding.bottom);
+    },
+    minHeightOf(style2, row2.kind)
+  );
+  const overlap = style2.layering === "overlap";
+  const drawn = placed.map((cell) => {
+    const padding = paddingOf(cell.column);
+    const inner = {
+      w: cell.width - padding.left - padding.right,
+      h: height - padding.top - padding.bottom
+    };
+    const content = row2.cells[cell.index]?.draw(inner.w, inner.h);
+    const origin = overlap ? 0 : cell.x;
+    const start = overlap ? cell.x : 0;
+    const shapeWidth = overlap ? cell.x + cell.width : cell.width;
+    const fill = fillOf(style2, row2.kind, cell.index, count);
+    const corners = cornersOf(
+      style2,
+      cell.column,
+      edges,
+      cell.index === 0,
+      cell.index === placed.length - 1
+    );
+    return shift(
+      cellGroup(cell.column.name, { w: shapeWidth, h: height }, fill, corners, content, {
+        x: start + padding.left,
+        y: padding.top + offsetOf2(cell.column.valign, inner.h, content)
+      }),
+      origin,
+      0
+    );
+  });
+  return block(
+    width,
+    height,
+    group({
+      name: rowNameOf(style2, row2.kind),
+      // Painted in order, so under `overlap` the earlier cells go last and cover the
+      // rounded left ends of the later ones.
+      children: overlap ? drawn.reverse() : drawn
+    })
+  );
+}
+function drawBand(style2, placed, row2, count, edges, width) {
+  const first = placed[0]?.column;
+  const last = placed[placed.length - 1]?.column;
+  const padding = {
+    top: first === void 0 ? 0 : paddingOf(first).top,
+    bottom: first === void 0 ? 0 : paddingOf(first).bottom,
+    left: first === void 0 ? 0 : paddingOf(first).left,
+    right: last === void 0 ? 0 : paddingOf(last).right
+  };
+  const innerWidth = width - padding.left - padding.right;
+  const content = row2.cells[0];
+  const measured = content?.draw(innerWidth);
+  const height = Math.max(
+    minHeightOf(style2, row2.kind),
+    measured === void 0 || content?.sizesRow === false ? 0 : measured.height + padding.top + padding.bottom
+  );
+  const innerHeight = height - padding.top - padding.bottom;
+  const drawn = content?.draw(innerWidth, innerHeight);
+  const corners = cornersOf(style2, void 0, edges, true, true);
+  return block(
+    width,
+    height,
+    group({
+      name: rowNameOf(style2, row2.kind),
+      children: [
+        cellGroup(
+          style2.names.band ?? "band",
+          { w: width, h: height },
+          fillOf(style2, row2.kind, 0, count),
+          corners,
+          drawn,
+          { x: padding.left, y: padding.top + offsetOf2(first?.valign, innerHeight, drawn) }
+        )
+      ]
+    })
+  );
+}
+function rowNameOf(style2, kind) {
+  return style2.kinds[kind]?.name ?? style2.names.row;
+}
+function minHeightOf(style2, kind) {
+  return style2.kinds[kind]?.minHeight ?? style2.minRowHeight;
+}
+function offsetOf2(valign, room, content) {
+  if (content === void 0) return 0;
+  const spare = room - content.height;
+  if (spare <= 0) return 0;
+  const where = valign ?? "middle";
+  if (where === "top") return 0;
+  return where === "bottom" ? spare : spare / 2;
+}
+function cellGroup(name, size, fill, corners, content, place) {
+  const children = [];
+  if (fill !== void 0) {
+    children.push(
+      rect({ size, ...corners === void 0 ? {} : { radius: corners }, fill: solid(fill) })
+    );
+  }
+  if (content !== void 0) children.push(shift(content.draft, place.x, place.y));
+  return group({ name, children });
+}
+function shift(draft, dx, dy) {
+  if (dx === 0 && dy === 0) return draft;
+  return at(dx, dy, block(0, 0, draft));
+}
+function buttonWidth(button) {
+  const { style: style2 } = button;
+  const leading = button.leading === void 0 ? 0 : button.leading.width + style2.gap;
+  const trailing = style2.trailing?.width ?? 0;
+  return style2.padding.left + leading + button.words.width + style2.padding.right + trailing;
+}
+function buttonRow(buttons, options) {
+  const widths = buttons.map(buttonWidth);
+  const natural = widths.reduce((sum, each) => sum + each, 0) + options.gap * Math.max(0, buttons.length - 1);
+  const room = options.width ?? natural;
+  if (options.report !== void 0) reportOverflow(options.report, natural, room);
+  const spare = Math.max(0, room - natural);
+  const justified = options.arrange === "justified" && buttons.length > 1;
+  const gap = justified ? options.gap + spare / (buttons.length - 1) : options.gap;
+  const height = buttons.reduce((tallest, each) => Math.max(tallest, each.style.height), 0);
+  let x = justified ? 0 : spare / 2;
+  const children = buttons.map((button, index) => {
+    const drawn = drawButton(button, widths[index]);
+    const placed = at(x, (height - drawn.height) / 2, drawn);
+    x += drawn.width + gap;
+    return placed;
+  });
+  return block(
+    Math.max(room, natural),
+    height,
+    group({ name: options.name ?? "buttons", children })
+  );
+}
+function drawButton(button, width) {
+  const { style: style2 } = button;
+  const h = style2.height;
+  const middle = (piece) => (h - piece.height) / 2;
+  const children = [];
+  if (style2.fill !== void 0) {
+    children.push(
+      rect({ name: "pill", size: { w: width, h }, radius: style2.radius, fill: solid(style2.fill) })
+    );
+  }
+  if (style2.trailing !== void 0) {
+    const box = style2.trailing;
+    children.push(
+      rect({
+        name: "end",
+        size: { w: box.width, h },
+        radius: box.radius,
+        fill: solid(box.fill),
+        transform: { x: width - box.width, y: 0 }
+      })
+    );
+    if (button.trailing !== void 0) {
+      children.push(
+        at(
+          width - box.width + (box.width - button.trailing.width) / 2,
+          middle(button.trailing),
+          button.trailing
+        )
+      );
     }
-  }).join("");
+  }
+  if (style2.stroke !== void 0) {
+    children.push(
+      rect({
+        name: "outline",
+        size: { w: width, h },
+        radius: style2.radius,
+        stroke: { paint: solid(style2.stroke.color), width: style2.stroke.width, align: "inside" }
+      })
+    );
+  }
+  let x = style2.padding.left;
+  if (button.leading !== void 0) {
+    children.push(at(x, middle(button.leading), button.leading));
+    x += button.leading.width + style2.gap;
+  }
+  children.push(at(x, middle(button.words), button.words));
+  return block(width, h, group({ name: button.name ?? "button", children }));
 }
+var NO_FILL = solid({ r: 0, g: 0, b: 0, a: 0 });
 
-// node_modules/.pnpm/@rafaelsilvalor+tyto-house-style@0.5.2/node_modules/@rafaelsilvalor/tyto-house-style/dist/chunk-EIGOHDOF.js
+// node_modules/.pnpm/@rafaelsilvalor+tyto-house-style@0.9.0/node_modules/@rafaelsilvalor/tyto-house-style/dist/chunk-KTMH3XT2.js
 var PLACEHOLDER_LOGO = {
   box: { w: 186.09, h: 376.79 },
   d: (
@@ -22308,7 +23169,7 @@ function signatureOf(kit) {
   return kit.signature ?? PLACEHOLDER_SIGNATURE;
 }
 
-// node_modules/.pnpm/@rafaelsilvalor+tyto-house-style@0.5.2/node_modules/@rafaelsilvalor/tyto-house-style/dist/index.js
+// node_modules/.pnpm/@rafaelsilvalor+tyto-house-style@0.9.0/node_modules/@rafaelsilvalor/tyto-house-style/dist/index.js
 var TITLE_INK = "#7c7c7c";
 var ROW_INK = "#393939";
 var FACE = systemFont("CircularXX");
@@ -22625,23 +23486,39 @@ var BUTTON = {
   arrow: { x: 861, y: 1161, w: 64, h: 34, shaft: 11 }
 };
 function coverButton(inks) {
-  return [
-    rect({
-      name: "botao",
-      size: { w: BUTTON.w, h: BUTTON.h },
-      radius: BUTTON.h / 2,
-      fill: solid(inks.fill),
-      transform: { x: BUTTON.x, y: BUTTON.y }
-    }),
-    textAt("botao-texto", BUTTON_WORD, {
-      x: BUTTON.wordX,
-      capTop: BUTTON.wordCapTop,
-      size: BUTTON.wordSize,
-      weight: BOLD3,
-      color: inks.ink
-    }),
-    arrow(BUTTON.arrow, inks.ink)
-  ];
+  const padding = BUTTON.wordX - BUTTON.x;
+  const words = group({
+    children: [
+      textAt("botao-texto", BUTTON_WORD, {
+        x: 0,
+        capTop: BUTTON.wordCapTop - BUTTON.y,
+        size: BUTTON.wordSize,
+        weight: BOLD3,
+        color: inks.ink
+      }),
+      arrow(
+        { ...BUTTON.arrow, x: BUTTON.arrow.x - BUTTON.wordX, y: BUTTON.arrow.y - BUTTON.y },
+        inks.ink
+      )
+    ]
+  });
+  const row = buttonRow(
+    [
+      {
+        name: "botao",
+        style: {
+          height: BUTTON.h,
+          radius: BUTTON.h / 2,
+          fill: inks.fill,
+          padding: { left: padding, right: 0 },
+          gap: 0
+        },
+        words: block(BUTTON.w - padding, BUTTON.h, words)
+      }
+    ],
+    { gap: 0, name: "cover-button" }
+  );
+  return [at(BUTTON.x, BUTTON.y, row)];
 }
 var BODY2 = {
   x: 158,
@@ -22985,25 +23862,57 @@ var ICON_ROWS = [
 var ROW_TEXT = { x: 443, size: 29.98, lineHeight: 38.68 / 29.98, letterSpacing: 0.6 };
 var ICON_STROKE = 4.5;
 function iconSignOff(inks) {
-  return ICON_ROWS.flatMap((row) => [
-    vector({
-      name: row.name,
-      geometry: { kind: "path", d: row.d, fillRule: "nonzero" },
-      size: { w: row.icon.w, h: row.icon.h },
-      fill: solid(inks.inside),
-      stroke: { paint: solid(inks.ink), width: ICON_STROKE, align: "center" },
-      transform: { x: row.icon.x, y: row.icon.y }
-    }),
-    textAt(`${row.name}-texto`, row.words, {
-      x: ROW_TEXT.x,
-      capTop: row.capTop,
-      size: ROW_TEXT.size,
-      weight: row.weight,
-      color: inks.ink,
-      lineHeight: ROW_TEXT.lineHeight,
-      letterSpacing: ROW_TEXT.letterSpacing
-    })
-  ]);
+  const left = Math.min(...ICON_ROWS.map((row) => row.icon.x));
+  const top = ICON_ROWS[0]?.icon.y ?? 0;
+  const layout = {
+    columns: [
+      { name: "icon", width: ROW_TEXT.x - left, valign: "top" },
+      { name: "words", width: "fill", valign: "top" }
+    ],
+    kinds: { row: {} },
+    rowGap: 0,
+    minRowHeight: 0,
+    names: { table: "sign-off-rows", row: "row" }
+  };
+  const rows = ICON_ROWS.map((row, index) => {
+    const rowTop = row.icon.y;
+    const height = (ICON_ROWS[index + 1]?.icon.y ?? rowTop + row.icon.h) - rowTop;
+    return {
+      kind: "row",
+      cells: [
+        {
+          draw: (width) => block(
+            width,
+            height,
+            vector({
+              name: row.name,
+              geometry: { kind: "path", d: row.d, fillRule: "nonzero" },
+              size: { w: row.icon.w, h: row.icon.h },
+              fill: solid(inks.inside),
+              stroke: { paint: solid(inks.ink), width: ICON_STROKE, align: "center" },
+              transform: { x: row.icon.x - left, y: 0 }
+            })
+          )
+        },
+        {
+          draw: (width) => block(
+            width,
+            height,
+            textAt(`${row.name}-texto`, row.words, {
+              x: 0,
+              capTop: row.capTop - rowTop,
+              size: ROW_TEXT.size,
+              weight: row.weight,
+              color: inks.ink,
+              lineHeight: ROW_TEXT.lineHeight,
+              letterSpacing: ROW_TEXT.letterSpacing
+            })
+          )
+        }
+      ]
+    };
+  });
+  return [at(left, top, table(layout, rows, SLIDE_WIDTH - left))];
 }
 var BODY_SIGNATURE_TOP = 1262.5;
 var SIGN_OFF_SIGNATURE_TOP = 1229.5;

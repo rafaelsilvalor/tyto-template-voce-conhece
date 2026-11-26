@@ -75,10 +75,22 @@ interface Node {
   readonly runs?: readonly Run[];
   readonly size?: { readonly w: number; readonly h: number };
   readonly transform?: { readonly x: number; readonly y: number };
+  readonly children?: readonly Node[];
 }
 
-const drawn = (context: TemplateContext): Node[] =>
-  (build(context) as unknown as { children: Node[] }).children;
+/**
+ * Every node a slide draws, each at its place on the slide: a group moves what it holds, so its
+ * offset is summed into its children's. Since TYTO-881 the cover's button and the sign-off's
+ * rows are the kit's groups, and a node's own transform is only its place in its cell.
+ */
+const drawn = (context: TemplateContext): Node[] => {
+  const walk = (nodes: readonly Node[], x: number, y: number): Node[] =>
+    nodes.flatMap((node) => {
+      const at = { x: x + (node.transform?.x ?? 0), y: y + (node.transform?.y ?? 0) };
+      return [{ ...node, transform: at }, ...walk(node.children ?? [], at.x, at.y)];
+    });
+  return walk((build(context) as unknown as { children: Node[] }).children, 0, 0);
+};
 const named = (context: TemplateContext, name: string): Node | undefined =>
   drawn(context).find((child) => child.name === name);
 const hex = (run: Run | undefined): string => {
